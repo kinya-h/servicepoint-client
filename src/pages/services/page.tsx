@@ -35,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import type { Service } from "../../lib/types";
+import type { ProviderInfo } from "../../lib/types";
 import {
   Loader2,
   PlusCircle,
@@ -60,6 +60,7 @@ import {
   fetchServiceByProvider,
 } from "../../services/local-service";
 import { useAppDispatch } from "../../hooks/hooks";
+import type { Service } from "../../types/Service";
 
 const serviceSchema = z.object({
   id: z.string().optional(),
@@ -134,8 +135,8 @@ export default function ManageServicesPage() {
       dispatch(
         updateService({
           ...values,
-          service_id: editingService.service_id,
-          provider_id: editingService.provider_id,
+          serviceId: editingService.serviceId,
+          provider: editingService.provider,
           icon: "Layers",
         })
       );
@@ -147,7 +148,13 @@ export default function ManageServicesPage() {
       dispatch(
         createService({
           ...values,
-          provider_id: loginResponse?.user?.id ?? 0, // Provide a default value of 0 if undefined (so, no provider)
+          provider:
+            {
+              id: loginResponse?.user?.id,
+              email: loginResponse?.user?.email,
+              username: loginResponse?.user?.username,
+              role: loginResponse?.user?.role as "provider" | "customer", // Ensure role is one of the allowed types
+            } ?? ({} as ProviderInfo), // Provide a default value of {} if undefined (so, no provider)
           icon: "Layers",
         })
       );
@@ -406,7 +413,7 @@ export default function ManageServicesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {services?.map((service) => (
-            <Card key={service?.service_id} className="shadow-lg">
+            <Card key={service?.serviceId} className="shadow-lg">
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-xl font-semibold">
@@ -429,7 +436,7 @@ export default function ManageServicesPage() {
                       variant="destructive"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => handleDeleteService(service?.service_id!)}
+                      onClick={() => handleDeleteService(service?.serviceId!)}
                     >
                       <Trash2 className="h-4 w-4" />
                       <span className="sr-only">Delete</span>

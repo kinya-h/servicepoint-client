@@ -6,8 +6,8 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../../../components/ui/card";
-import { Button } from "../../../components/ui/button";
+} from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
 import {
   Form,
   FormControl,
@@ -15,8 +15,8 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../../components/ui/form";
-import { Textarea } from "../../../components/ui/textarea";
+} from "../../components/ui/form";
+import { Textarea } from "../../components/ui/textarea";
 import {
   Loader2,
   MessageSquarePlus,
@@ -27,13 +27,11 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useToast } from "../../../hooks/use-toast";
-import { useAuth } from "../../../hooks/useAuth";
-import { mockBookingDetails } from "../../../data/bookings";
-import type {
-  BookingDetails,
-  MockBookingDetails,
-} from "../../../types/booking";
+import { useToast } from "../../hooks/use-toast";
+import { mockBookingDetails } from "../../data/bookings";
+import type { BookingDetails, MockBookingDetails } from "../../types/booking";
+import { useSelector } from "react-redux";
+import type { RootState } from "../../store";
 
 // Define the feedback schema
 const feedbackSchema = z.object({
@@ -51,7 +49,9 @@ const feedbackSchema = z.object({
 export default function SubmitFeedbackPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, isLoading: authIsLoading } = useAuth();
+  const { loginResponse, loading: authIsLoading } = useSelector(
+    (state: RootState) => state.users
+  );
   const { toast } = useToast();
   const bookingId = searchParams.get("bookingId");
   const [bookingInfo, setBookingInfo] = useState<BookingDetails | null>(null);
@@ -66,7 +66,7 @@ export default function SubmitFeedbackPage() {
 
   useEffect(() => {
     if (!authIsLoading) {
-      if (!user || user.role !== "customer") {
+      if (!loginResponse || loginResponse?.user?.role !== "customer") {
         navigate("/auth/login");
         return;
       }
@@ -86,15 +86,15 @@ export default function SubmitFeedbackPage() {
         setPageLoading(false);
       }, 300);
     }
-  }, [bookingId, authIsLoading, user, navigate, toast]);
+  }, [bookingId, authIsLoading, loginResponse, navigate, toast]);
 
   const onSubmit = (values: any) => {
-    if (!bookingInfo || !user) return;
+    if (!bookingInfo || !loginResponse) return;
     // Mock feedback submission
     console.log("Feedback submitted:", {
       ...values,
       bookingId: bookingInfo.id,
-      customerId: user.id,
+      customerId: loginResponse.user.id,
       providerId: bookingInfo.providerId,
     });
     toast({

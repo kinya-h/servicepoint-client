@@ -1,6 +1,7 @@
 
-import type { User, Service, EducationLevel, HomeRepairCategory } from '../lib/types';
+import type { User, EducationLevel, HomeRepairCategory } from '../lib/types';
 import { BookOpen, Home, Wrench, Sparkles, GraduationCap, School, Feather, Palette, TestTube, Globe, Calculator, Briefcase, Atom, Film, Music, Languages, Code, Landmark, DraftingCompass, Server, Zap, PaintRoller, Hammer } from 'lucide-react';
+import type { Service } from '../types/Service';
 
 export const educationLevels: EducationLevel[] = [
   {
@@ -102,9 +103,9 @@ export const mockProviders: (User & { services: Service[], shortBio?: string })[
     specialties: ["Plumbing", "Drain Cleaning"],
     distanceMiles: 2,
     services: [
-      { service_id: 2, provider_id: 1, category: "Home Repairs", name: "Plumbing Repairs", description: "Fixing leaks, clogs, etc.", price: 75, pricingType: "hourly", icon: "Wrench" },
-      { service_id: 1, provider_id: 1, category: "Home Repairs", name: "Drain Cleaning", description: "Clearing blocked drains.", price: 90, pricingType: "per_work", icon: "Wrench" },
-      { service_id: 2, provider_id: 1, category: "Home Repairs", name: "Fixture Installation", description: "Installing sinks, toilets.", price: 120, pricingType: "per_work", icon: "Wrench" }
+      { serviceId: 2, provider: {id:1, email:"test@gmail.com", username:"Home Repairs", role:"customer"}, category: "Home Repairs", name: "Plumbing Repairs", description: "Fixing leaks, clogs, etc.", price: 75, pricingType: "hourly", icon: "Wrench" },
+      { serviceId: 1, provider: {id:2, email:"test@gmail.com", username:"Home Repairs", role:"customer"}, category: "Home Repairs", name: "Drain Cleaning", description: "Clearing blocked drains.", price: 90, pricingType: "per_work", icon: "Wrench" },
+      { serviceId: 2, provider: {id:2, email:"test@gmail.com", username:"Home Repairs", role:"customer"}, category: "Home Repairs", name: "Fixture Installation", description: "Installing sinks, toilets.", price: 120, pricingType: "per_work", icon: "Wrench" }
     ],
     shortBio: "Expert plumbing services for Springfield. Quick, reliable, and affordable. 10+ years experience in all types of pipe work and fixture installations.",
   },
@@ -121,8 +122,8 @@ export const mockProviders: (User & { services: Service[], shortBio?: string })[
     reviewCount: 88,
     distanceMiles: 15, // Further away
     services: [
-        {service_id: 1, provider_id: 2, category: "House Services", name: "Residential Cleaning", description: "Regular home cleaning.", price: 30, pricingType: "hourly", icon: "Sparkles" },
-        {service_id: 3, provider_id: 2, category: "House Services", name: "Deep Cleaning", description: "Intensive cleaning service.", price: 150, pricingType: "per_work", icon: "Sparkles" }
+        {serviceId: 1, provider:{id:2, email:"test@gmail.com", username:"Home Repairs", role:"customer"}, category: "House Services", name: "Residential Cleaning", description: "Regular home cleaning.", price: 30, pricingType: "hourly", icon: "Sparkles" },
+        {serviceId: 3, provider: {id:1, email:"test@gmail.com", username:"Home Repairs", role:"customer"},category: "House Services", name: "Deep Cleaning", description: "Intensive cleaning service.", price: 150, pricingType: "per_work", icon: "Sparkles" }
     ],
     shortBio: "Your go-to for sparkling clean homes in Shelbyville. Eco-friendly options available. We cover everything from routine upkeep to intensive deep cleans.",
   },
@@ -136,9 +137,9 @@ export const mockProviders: (User & { services: Service[], shortBio?: string })[
     rating: 4.9,
     reviewCount: 210,
     services: [
-      { service_id: 1, provider_id: 3, category: "Tutoring", name: "Algebra Tutoring", level: "Middle School", subject: "Math (algebra, pre-algebra, geometry)", description: "Helping students master Algebra.", price: 45, pricingType: "hourly", icon: "BookOpen" },
-      { service_id:2, provider_id: 3, category: "Tutoring", name: "Calculus Tutoring", level: "High School", subject: "Math (algebra, trigonometry, calculus)", description: "Advanced calculus concepts.", price: 55, pricingType: "hourly", icon: "BookOpen" },
-      { service_id: 5, provider_id: 3, category: "Tutoring", name: "Physics Tutoring", level: "High School", subject: "Science (biology, chemistry, physics)", description: "High school physics made easy.", price: 50, pricingType: "hourly", icon: "BookOpen" }
+      { serviceId: 1, provider:{id:3, email:"test3@gmail.com", username:"Home Repairs", role:"provider"}, category: "Tutoring", name: "Algebra Tutoring", level: "Middle School", subject: "Math (algebra, pre-algebra, geometry)", description: "Helping students master Algebra.", price: 45, pricingType: "hourly", icon: "BookOpen" },
+      { serviceId:2, provider: {id:3, email:"test3@gmail.com", username:"Home Repairs", role:"provider"}, category: "Tutoring", name: "Calculus Tutoring", level: "High School", subject: "Math (algebra, trigonometry, calculus)", description: "Advanced calculus concepts.", price: 55, pricingType: "hourly", icon: "BookOpen" },
+      { serviceId: 5, provider: {id:3, email:"test3@gmail.com", username:"Home Repairs", role:"provider"}, category: "Tutoring", name: "Physics Tutoring", level: "High School", subject: "Science (biology, chemistry, physics)", description: "High school physics made easy.", price: 50, pricingType: "hourly", icon: "BookOpen" }
     ],
     shortBio: "Experienced online tutor specializing in High School & College Math (Algebra, Calculus, Statistics) and Physics. Patient and results-oriented.",
   },
@@ -154,7 +155,7 @@ export const mockProviders: (User & { services: Service[], shortBio?: string })[
     rating: 4.7,
     reviewCount: 95,
     distanceMiles: 3,
-    services: [{service_id: 2, provider_id: 4, category: "House Services", name: "Eco-Friendly Cleaning", description: "Green cleaning solutions.", price: 35, pricingType: "hourly", icon: "Sparkles" }],
+    services: [{serviceId: 2, provider: {id:4, email:"test4@gmail.com", username:"Home Repairs", role:"provider"}, category: "House Services", name: "Eco-Friendly Cleaning", description: "Green cleaning solutions.", price: 35, pricingType: "hourly", icon: "Sparkles" }],
     shortBio: "Green cleaning solutions for a healthier home in Springfield. Safe for pets and kids. We use only certified organic products.",
   },
   {
@@ -171,9 +172,9 @@ export const mockProviders: (User & { services: Service[], shortBio?: string })[
     specialties: ["General Handyman", "Painting", "Furniture Assembly"],
     distanceMiles: 1,
     services: [
-        { service_id: 1, provider_id:1, category: "Home Repairs", name: "General Handyman", description: "Small fixes around the house.", price: 40, pricingType: "hourly", icon: "Hammer" },
-        { service_id: 2, provider_id:2, category: "Home Repairs", name: "Interior Painting", description: "Interior painting.", price: 200, pricingType: "per_work", icon: "PaintRoller" },
-        { service_id:3, provider_id: 3, category: "Home Repairs", name: "Furniture Assembly", description: "Assembling flat-pack furniture.", price: 60, pricingType: "per_work", icon: "Wrench" }
+        { serviceId: 1, provider:{id:1, email:"test1@gmail.com", username:"Home Repairs", role:"provider"}, category: "Home Repairs", name: "General Handyman", description: "Small fixes around the house.", price: 40, pricingType: "hourly", icon: "Hammer" },
+        { serviceId: 2, provider:{id:3, email:"test3@gmail.com", username:"Home Repairs", role:"provider"}, category: "Home Repairs", name: "Interior Painting", description: "Interior painting.", price: 200, pricingType: "per_work", icon: "PaintRoller" },
+        { serviceId:3, provider: {id:3, email:"test3@gmail.com", username:"Home Repairs", role:"provider"}, category: "Home Repairs", name: "Furniture Assembly", description: "Assembling flat-pack furniture.", price: 60, pricingType: "per_work", icon: "Wrench" }
     ],
     shortBio: "Your reliable handyman for all small home repairs and improvements in Springfield. No job too small! Over 15 years experience.",
   },
@@ -191,8 +192,8 @@ export const mockProviders: (User & { services: Service[], shortBio?: string })[
     specialties: ["Electrical", "Appliance Installation"],
     distanceMiles: 4,
     services: [
-        { service_id: 3, provider_id: 3, category: "Home Repairs", name: "Electrical Repairs", description: "Minor electrical fixes.", price: 65, pricingType: "hourly", icon: "Zap" },
-        { service_id: 4, provider_id:4, category: "Home Repairs", name: "Appliance Installation", description: "Installing new appliances.", price: 100, pricingType: "per_work", icon: "Wrench" }
+        { serviceId: 3, provider: {id:3, email:"test3@gmail.com", username:"Home Repairs", role:"provider"}, category: "Home Repairs", name: "Electrical Repairs", description: "Minor electrical fixes.", price: 65, pricingType: "hourly", icon: "Zap" },
+        { serviceId: 4, provider: {id:3, email:"test3@gmail.com", username:"Home Repairs", role:"provider"}, category: "Home Repairs", name: "Appliance Installation", description: "Installing new appliances.", price: 100, pricingType: "per_work", icon: "Wrench" }
     ],
     shortBio: "Certified electrician for minor electrical repairs and appliance installations in Springfield. Safety first!",
   },
@@ -206,10 +207,10 @@ export const mockProviders: (User & { services: Service[], shortBio?: string })[
     rating: 4.8,
     reviewCount: 180,
     services: [
-        { service_id: 1, provider_id: 5, category: "Tutoring", name: "English Literature", level: "High School", subject: "English (literature, creative writing)", description: "High school English lit.", price: 50, pricingType: "hourly", icon: "BookOpen" },
-        { service_id: 4, provider_id: 2, category: "Tutoring", name: "Essay Writing", level: "High School", subject: "English (literature, creative writing)", description: "Help with academic essays.", price: 45, pricingType: "hourly", icon: "BookOpen" },
-        { service_id: 5, provider_id: 3, category: "Tutoring", name: "SAT Prep (Verbal)", level: "High School", subject: "English (literature, creative writing)", description: "Verbal section SAT prep.", price: 60, pricingType: "hourly", icon: "BookOpen" },
-        { service_id: 4, provider_id: 4, category: "Tutoring", name: "Basic Reading (Elementary)", level: "Elementary School (Grades 1-5/6)", subject: "English Language Arts (reading, writing, vocabulary)", description: "Elementary reading skills.", price: 40, pricingType: "hourly", icon: "BookOpen" },
+        { serviceId: 1, provider: {id:5, email:"test5@gmail.com", username:"john", role:"provider"}, category: "Tutoring", name: "English Literature", level: "High School", subject: "English (literature, creative writing)", description: "High school English lit.", price: 50, pricingType: "hourly", icon: "BookOpen" },
+        { serviceId: 4, provider: {id:3, email:"test3@gmail.com", username:"", role:"provider"}, category: "Tutoring", name: "Essay Writing", level: "High School", subject: "English (literature, creative writing)", description: "Help with academic essays.", price: 45, pricingType: "hourly", icon: "BookOpen" },
+        { serviceId: 5, provider: {id:3, email:"test3@gmail.com", username:"", role:"provider"}, category: "Tutoring", name: "SAT Prep (Verbal)", level: "High School", subject: "English (literature, creative writing)", description: "Verbal section SAT prep.", price: 60, pricingType: "hourly", icon: "BookOpen" },
+        { serviceId: 4, provider:{id:3, email:"test3@gmail.com", username:"", role:"provider"} , category: "Tutoring", name: "Basic Reading (Elementary)", level: "Elementary School (Grades 1-5/6)", subject: "English Language Arts (reading, writing, vocabulary)", description: "Elementary reading skills.", price: 40, pricingType: "hourly", icon: "BookOpen" },
     ],
     shortBio: "MA in English Literature. Helping students excel in reading, writing, and critical analysis. All ages. Online sessions.",
   },
@@ -223,9 +224,9 @@ export const mockProviders: (User & { services: Service[], shortBio?: string })[
     rating: 4.7,
     reviewCount: 130,
     services: [
-        { service_id: 3, provider_id: 3, category: "Tutoring", name: "General Chemistry", level: "High School", subject: "Science (biology, chemistry, physics)", description: "High school chemistry.", price: 55, pricingType: "hourly", icon: "BookOpen" },
-        { service_id: 4, provider_id:1, category: "Tutoring", name: "Organic Chemistry", level: "Undergraduate (Higher Education)", subject: "Major-Specific Subjects (e.g., Engineering, Psychology, Business)", description: "College-level O-Chem.", price: 60, pricingType: "hourly", icon: "BookOpen" },
-        { service_id: 4, provider_id: 2, category: "Tutoring", name: "Biology (Middle School)", level: "Middle School", subject: "Science (biology, chemistry, earth science)", description: "Middle school biology concepts.", price: 45, pricingType: "hourly", icon: "BookOpen" },
+        { serviceId: 3, provider: {id:3, email:"test3@gmail.com", username:"", role:"provider"}, category: "Tutoring", name: "General Chemistry", level: "High School", subject: "Science (biology, chemistry, physics)", description: "High school chemistry.", price: 55, pricingType: "hourly", icon: "BookOpen" },
+        { serviceId: 4, provider:{id:12, email:"test12@gmail.com", username:"", role:"provider"}, category: "Tutoring", name: "Organic Chemistry", level: "Undergraduate (Higher Education)", subject: "Major-Specific Subjects (e.g., Engineering, Psychology, Business)", description: "College-level O-Chem.", price: 60, pricingType: "hourly", icon: "BookOpen" },
+        { serviceId: 4, provider: {id:33, email:"test33@gmail.com", username:"", role:"provider"}, category: "Tutoring", name: "Biology (Middle School)", level: "Middle School", subject: "Science (biology, chemistry, earth science)", description: "Middle school biology concepts.", price: 45, pricingType: "hourly", icon: "BookOpen" },
     ],
     shortBio: "PhD in Chemistry. Making complex science topics easy to understand. Specializing in high school and undergraduate chemistry & biology. Online.",
   },
@@ -239,8 +240,8 @@ export const mockProviders: (User & { services: Service[], shortBio?: string })[
     rating: 4.2,
     reviewCount: 65,
     services: [
-        { service_id: 3, provider_id: 3, category: "Tutoring", name: "World History", level: "High School", subject: "Social Studies (U.S. history, world history, civics)", description: "High school world history.", price: 40, pricingType: "hourly", icon: "BookOpen" },
-        { service_id: 3, provider_id:4, category: "Tutoring", name: "US History (Middle School)", level: "Middle School", subject: "Social Studies (world history, U.S. government)", description: "Middle school US history.", price: 40, pricingType: "hourly", icon: "BookOpen" }
+        { serviceId: 3, provider: {id:3, email:"test3@gmail.com", username:"", role:"provider"}, category: "Tutoring", name: "World History", level: "High School", subject: "Social Studies (U.S. history, world history, civics)", description: "High school world history.", price: 40, pricingType: "hourly", icon: "BookOpen" },
+        { serviceId: 3, provider:{id:4, email:"test4@gmail.com", username:"", role:"provider"}, category: "Tutoring", name: "US History (Middle School)", level: "Middle School", subject: "Social Studies (world history, U.S. government)", description: "Middle school US history.", price: 40, pricingType: "hourly", icon: "BookOpen" }
     ],
     shortBio: "Passionate history graduate making learning history engaging and fun for all levels. Online tutoring available.",
   }
@@ -253,8 +254,8 @@ export const serviceCategories = [
 
 mockProviders.forEach(provider => {
   provider.services.forEach((service, index) => {
-    if (service && !service.service_id) service.service_id = index + Number(provider.id);
-    if (service && !service.provider_id) service.provider_id = Number(provider.id);
+    if (service && !service.serviceId) service.serviceId = index + Number(provider.id);
+    if (service && !service.provider.id) service.provider.id = Number(provider.id);
     if (service && !service.category) throw new Error(`Service ${service.name} for provider ${provider.name} is missing category`);
     if (service && !service.name) throw new Error(`Service at index ${index} for provider ${provider.name} is missing name`);
     if (service && !service.description) service.description = `Description for ${service.name}`;

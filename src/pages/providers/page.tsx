@@ -7,7 +7,6 @@ import {
   CardFooter,
 } from "../../components/ui/card";
 import ServiceCard from "../../components/services/ServiceCard";
-import type { User, Service } from "../../lib/types";
 import {
   Mail,
   MapPin,
@@ -41,6 +40,7 @@ import { Button } from "../../components/ui/button";
 import { useToast } from "../../hooks/use-toast";
 import { useAppDispatch } from "../../hooks/hooks";
 import { fetchServiceByProvider } from "../../services/local-service";
+import type { Service } from "../../types/Service";
 
 export default function ProviderProfilePage() {
   const { providerId } = useParams<{ providerId: string }>();
@@ -109,7 +109,7 @@ export default function ProviderProfilePage() {
 
     if (selectedServiceFilter !== "all" && selectedServiceFilter !== "other") {
       servicesToShow = servicesToShow.filter(
-        (service) => service?.service_id!.toString() === selectedServiceFilter
+        (service) => service?.serviceId!.toString() === selectedServiceFilter
       );
     }
 
@@ -237,8 +237,8 @@ export default function ProviderProfilePage() {
                 <SelectItem value="all">All Provider's Services</SelectItem>
                 {providerServices.map((service) => (
                   <SelectItem
-                    key={service.service_id}
-                    value={service.service_id!.toString()}
+                    key={service.serviceId}
+                    value={service.serviceId!.toString()}
                   >
                     {service.name}
                   </SelectItem>
@@ -316,7 +316,7 @@ export default function ProviderProfilePage() {
         ) : filteredServices.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredServices.map((service) => (
-              <ServiceCard key={service.service_id} service={service} />
+              <ServiceCard key={service.serviceId} service={service} />
             ))}
           </div>
         ) : (

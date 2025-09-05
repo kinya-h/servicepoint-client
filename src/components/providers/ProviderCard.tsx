@@ -18,10 +18,10 @@ import {
   Navigation,
   BookOpen,
 } from "lucide-react";
-import type { Provider } from "../../types/provider";
+import type { Provider, ProviderWithUser } from "../../types/provider";
 
 interface ProviderCardProps {
-  provider: Provider;
+  provider: ProviderWithUser;
 }
 
 const getCategoryIcon = (category: string) => {
@@ -80,7 +80,7 @@ const getCategoryIcon = (category: string) => {
 export default function ProviderCard({ provider }: ProviderCardProps) {
   // Extract unique categories from the services array
   const uniqueCategories = Array.from(
-    new Set(provider.services.map((s) => s.category))
+    new Set(provider.service?.category)
   ).slice(0, 3);
 
   return (
@@ -115,7 +115,7 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
                 provider.user.reviewCount !== undefined && (
                   <div className="flex items-center text-sm text-muted-foreground">
                     <Star className="h-4 w-4 mr-1 text-accent fill-accent" />
-                    {provider.user.rating.toFixed(1)} (
+                    {provider?.user?.rating?.toFixed(1)!} (
                     {provider.user.reviewCount} reviews)
                   </div>
                 )}
@@ -143,23 +143,22 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
         </div>
       </CardHeader>
       <CardContent className="p-4 flex-grow space-y-2">
-        {provider.services && provider.services.length > 0 && (
+        {provider.service && (
           <div>
             <h4 className="text-xs font-semibold text-muted-foreground mt-1">
               Specializes in:
             </h4>
             <p className="text-sm text-foreground">
-              {provider.services
-                .map((s) => {
-                  let serviceDisplay = s.name || s.category;
-                  if (s.level) {
-                    serviceDisplay += ` (${s.level})`;
-                  }
-                  return serviceDisplay;
-                })
-                .slice(0, 3)
-                .join(", ")}
-              {provider.services.length > 3 ? "..." : ""}
+              {(() => {
+                const s = provider.service;
+                if (!s) return "";
+
+                let serviceDisplay = s.name || s.category;
+                if (s.level) {
+                  serviceDisplay += ` (${s.level})`;
+                }
+                return serviceDisplay;
+              })()}
             </p>
           </div>
         )}

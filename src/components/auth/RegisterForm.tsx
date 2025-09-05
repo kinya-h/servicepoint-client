@@ -73,9 +73,9 @@ export default function RegisterForm() {
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Full Name</FormLabel>
+              <FormLabel>Username</FormLabel>
               <FormControl>
-                <Input placeholder="John Doe" {...field} />
+                <Input placeholder="John" {...field} autoCorrect="off" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -88,7 +88,12 @@ export default function RegisterForm() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input placeholder="you@example.com" {...field} />
+                <Input
+                  placeholder="you@example.com"
+                  {...field}
+                  autoComplete="email"
+                  autoCorrect="off"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -101,7 +106,13 @@ export default function RegisterForm() {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input type="password" placeholder="••••••••" {...field} />
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  {...field}
+                  autoComplete="new-password"
+                  autoCorrect="off"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

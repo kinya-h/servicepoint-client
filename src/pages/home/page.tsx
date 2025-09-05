@@ -1,17 +1,39 @@
 "use client";
 import ServiceSearchForm from "../../components/services/ServiceSearchForm";
 import { Button } from "../../components/ui/button";
-import { Lightbulb } from "lucide-react";
+import {
+  DollarSign,
+  Edit3,
+  Layers,
+  Layers2,
+  Lightbulb,
+  Loader2,
+  PlusCircle,
+  Tag,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
 import { serviceCategories } from "../../lib/mockData";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../store";
+import React, { useEffect } from "react";
+import { useAppDispatch } from "../../hooks/hooks";
+import { getLoggedInUser } from "../../services/user-service";
+import { getServices } from "../../services/local-service";
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { loginResponse, loading: authIsLoading } = useSelector(
     (state: RootState) => state.users
   );
+  const { services } = useSelector((state: RootState) => state.services);
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    dispatch(getLoggedInUser());
+    dispatch(getServices());
+  }, []);
 
   const handleSearch = (values: {
     serviceType: string;
@@ -35,6 +57,25 @@ export default function HomePage() {
       navigate(targetPath);
     }
     // If auth is loading, do nothing yet, or show a loading indicator on the search button
+  };
+
+  // Create a proper icon map with correct typing
+  const iconMap: Record<string, LucideIcon> = {
+    Loader2,
+    PlusCircle,
+    Edit3,
+    Trash2,
+    Tag,
+    DollarSign,
+    Layers,
+    Layers2,
+    Lightbulb,
+  };
+
+  // Get the icon component by name
+  const getIconComponent = (iconName: string | undefined): LucideIcon => {
+    if (!iconName) return Layers2;
+    return iconMap[iconName] || Layers2;
   };
 
   return (
@@ -65,38 +106,48 @@ export default function HomePage() {
           Popular Service Categories
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {serviceCategories.map((category) => (
-            <div
-              key={category.name}
-              className="bg-card p-6 rounded-lg shadow-lg border text-center hover:shadow-xl transition-shadow"
-            >
-              <img
-                src={`https://placehold.co/300x200.png`}
-                alt={category.name}
-                width={300}
-                height={200}
-                className="w-full h-40 object-cover rounded-md mb-4"
-                data-ai-hint={category.hint}
-              />
-              <category.icon className="h-12 w-12 text-primary mx-auto mb-4" />
-              <h3 className="text-xl font-semibold font-headline mb-2">
-                {category.name}
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {category.description}
-              </p>
-              <Button
-                variant="outline"
-                className="border-primary text-primary hover:bg-primary/10"
-                onClick={() =>
-                  handleSearch({ serviceType: category.name, location: "" })
-                }
-                disabled={authIsLoading} // Disable button while auth is loading
+          {services.map((service) => {
+            const IconComponent = getIconComponent(service.icon);
+
+            return (
+              <div
+                key={service.category}
+                className="bg-card p-6 rounded-lg shadow-lg border text-center hover:shadow-xl transition-shadow"
               >
-                {authIsLoading ? "Loading..." : `Explore ${category.name}`}
-              </Button>
-            </div>
-          ))}
+                <img
+                  src={`https://placehold.co/300x200.png`}
+                  alt={service.category}
+                  width={300}
+                  height={200}
+                  className="w-full h-40 object-cover rounded-md mb-4"
+                  data-ai-hint={service.category}
+                />
+
+                {/* Use the dynamically mapped icon */}
+                <IconComponent className="h-12 w-12 text-primary mx-auto mb-4" />
+
+                <h3 className="text-xl font-semibold font-headline mb-2">
+                  {service.category}
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {service.description}
+                </p>
+                <Button
+                  variant="outline"
+                  className="border-primary text-primary hover:bg-primary/10"
+                  onClick={() =>
+                    handleSearch({
+                      serviceType: service.category,
+                      location: "",
+                    })
+                  }
+                  disabled={authIsLoading} // Disable button while auth is loading
+                >
+                  {authIsLoading ? "Loading..." : `Explore ${service.category}`}
+                </Button>
+              </div>
+            );
+          })}
         </div>
       </section>
       <section className="py-12 bg-primary/10 rounded-lg text-center">

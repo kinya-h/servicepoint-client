@@ -1,10 +1,12 @@
+import type { ProviderInfo, UserInfo } from "../lib/types";
+import type { Service } from "./Service";
 
 
 export interface Booking {
     id: number;
-    customer_id: number;
-    provider_id: number;
-    service_id: number;
+    customer: UserInfo;
+    provider: ProviderInfo;
+    service: Service;
     bookingDate: string; 
     serviceDateTime: string; // ISO string for date
     status: "completed" | "confirmed" | "pending" | "cancelled";

@@ -64,7 +64,7 @@ const BookingsPage = () => {
       if (!loginResponse || loginResponse.user.role !== "customer") {
         navigate("/auth/login"); // Or a relevant unauthorized page
       } else {
-        setBookings(mockBookings.filter((b: Booking) => b.customerId === "u1")); // Assuming current user is "u1"
+        setBookings(mockBookings.filter((b: Booking) => b.customer.id === 1)); // Assuming current user id is 1
         setPageLoading(false);
       }
     }
@@ -120,7 +120,10 @@ const BookingsPage = () => {
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-xl font-semibold">
-                    {mockServiceNames[booking.serviceId] || "Service"}
+                    {booking.service?.serviceId &&
+                    mockServiceNames[booking.service.serviceId]
+                      ? mockServiceNames[booking.service.serviceId]
+                      : "Service"}
                   </CardTitle>
                   <Badge
                     variant={getStatusBadgeVariant(booking.status)}
@@ -130,7 +133,7 @@ const BookingsPage = () => {
                   </Badge>
                 </div>
                 <CardDescription>
-                  With: {mockProviderNames[booking.providerId] || "Provider"}
+                  With: {mockProviderNames[booking.provider.id] || "Provider"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">

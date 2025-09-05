@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSelector, useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 import { useToast } from "../../hooks/use-toast";
 import {
   Card,
@@ -28,13 +28,10 @@ import {
   Edit3,
   Loader2,
 } from "lucide-react";
-import type { Booking, User } from "../../lib/types";
 import type { RootState } from "../../store";
 import { useAppDispatch } from "../../hooks/hooks";
-import {
-  fetchBookings,
-  fetchUserBookings,
-} from "../../services/booking-service";
+import { fetchProviderBookings } from "../../services/booking-service";
+import type { Booking } from "../../types/booking";
 
 export default function ProviderBookingsPage() {
   const navigate = useNavigate();
@@ -54,30 +51,26 @@ export default function ProviderBookingsPage() {
       if (!loginResponse || loginResponse.user.role !== "provider") {
         navigate("/auth/login?redirect=/dashboard/provider-bookings");
       } else {
-        dispatch(fetchUserBookings(loginResponse?.user?.id!)).then(() => {
+        dispatch(fetchProviderBookings(loginResponse.user.id!)).then(() => {
           setPageLoading(false);
         });
       }
     }
-  }, [loginResponse, authLoading, navigate, dispatch]);
+  }, [authLoading, loginResponse, navigate, dispatch]);
 
   const handleBookingAction = (
-    bookingId: string,
+    bookingId: number,
     action: "accept" | "decline" | "reschedule" | "message" | "view_feedback"
   ) => {
     toast({
       title: "Action Triggered (Mock)",
       description: `Action '${action}' for booking ID ${bookingId}. Implement actual logic.`,
     });
-
-    if (action === "accept" || action === "decline") {
-      // Dispatch an action to update the booking status
-      // dispatch(updateBookingStatus({ bookingId, status: action === "accept" ? "confirmed" : "cancelled" }));
-    }
   };
 
   const getStatusBadgeVariant = (status: Booking["status"]) => {
-    switch (status) {
+    const statusLower = status.toLowerCase();
+    switch (statusLower) {
       case "completed":
         return "default";
       case "confirmed":
@@ -91,16 +84,22 @@ export default function ProviderBookingsPage() {
     }
   };
 
-  const upcomingBookings = (bookings || [])
-    .filter((b) => b.status === "confirmed" || b.status === "pending")
+  // Map serviceInfo to service for frontend consistency
+  const normalizedBookings = (bookings || []).map((b) => ({
+    ...b,
+    service: b.service,
+  }));
+
+  const upcomingBookings = normalizedBookings
+    .filter((b) => ["confirmed", "pending"].includes(b.status.toLowerCase()))
     .sort(
       (a, b) =>
         new Date(a.serviceDateTime).getTime() -
         new Date(b.serviceDateTime).getTime()
     );
 
-  const pastBookings = (bookings || [])
-    .filter((b) => b.status === "completed" || b.status === "cancelled")
+  const pastBookings = normalizedBookings
+    .filter((b) => ["completed", "cancelled"].includes(b.status.toLowerCase()))
     .sort(
       (a, b) =>
         new Date(b.serviceDateTime).getTime() -
@@ -131,7 +130,7 @@ export default function ProviderBookingsPage() {
       <CardHeader>
         <div className="flex justify-between items-start">
           <CardTitle className="text-xl font-semibold">
-            Service # {booking.serviceId}
+            Service # {booking.service.serviceId}
           </CardTitle>
           <Badge
             variant={getStatusBadgeVariant(booking.status)}
@@ -141,7 +140,7 @@ export default function ProviderBookingsPage() {
           </Badge>
         </div>
         <CardDescription>
-          With: {booking.customer.id} (ID: {booking.customer.name})
+          With: {booking.customer.username} (ID: {booking.customer.id})
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
@@ -167,7 +166,7 @@ export default function ProviderBookingsPage() {
         )}
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
-        {!isPastBooking && booking.status === "pending" && (
+        {!isPastBooking && booking.status.toLowerCase() === "pending" && (
           <>
             <Button
               size="sm"
@@ -185,7 +184,7 @@ export default function ProviderBookingsPage() {
             </Button>
           </>
         )}
-        {!isPastBooking && booking.status === "confirmed" && (
+        {!isPastBooking && booking.status.toLowerCase() === "confirmed" && (
           <>
             <Button
               variant="outline"
@@ -210,7 +209,7 @@ export default function ProviderBookingsPage() {
             </Button>
           </>
         )}
-        {isPastBooking && booking.status === "completed" && (
+        {isPastBooking && booking.status.toLowerCase() === "completed" && (
           <Button
             variant="outline"
             size="sm"

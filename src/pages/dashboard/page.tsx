@@ -32,8 +32,8 @@ export default function DashboardPage() {
       navigate("/auth/login");
     } else if (
       !loading &&
-      loginResponse.user &&
-      loginResponse.user.role === "provider"
+      loginResponse?.user &&
+      loginResponse?.user.role === "provider"
     ) {
       navigate("/dashboard/provider"); // Redirect provider to their specific dashboard
     }
@@ -42,7 +42,7 @@ export default function DashboardPage() {
   if (
     loading ||
     !loginResponse ||
-    (loginResponse.user && loginResponse.user.role === "provider")
+    (loginResponse?.user && loginResponse?.user?.role === "provider")
   ) {
     return (
       <div className="flex justify-center items-center h-[calc(100vh-200px)]">

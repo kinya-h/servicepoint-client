@@ -57,6 +57,7 @@ interface ServiceSearchFormProps {
   onSearch: (values: SearchFormValues) => void;
   initialValues?: Partial<SearchFormValues>;
   isContextualFilterMode?: boolean;
+  loading?: boolean;
 }
 
 export default function ServiceSearchForm({

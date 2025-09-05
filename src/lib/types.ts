@@ -1,5 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
+import type { Service } from '../types/Service';
 
 export interface Address {
   id: string;
@@ -23,6 +24,23 @@ export interface CommunicationPreferences {
   appNotifications: boolean;
 }
 
+export interface UserInfo {
+  id: number;
+  email: string;
+  username: string;
+  role: string;
+  phoneNumber?: string;
+  profilePicture?: string;
+
+}
+
+export interface ProviderInfo {
+  id: number;
+  email: string;
+  username: string;
+  role: 'customer' | 'provider';
+
+}
 export interface User {
   id: string;
   email: string;
@@ -43,33 +61,6 @@ export interface User {
   distanceMiles?: number; // Mocked distance
 }
 
-export interface Service {
-  service_id?: number;
-  provider_id: number;
-  name: string;
-  description: string;
-  category: 'Tutoring' | 'Home Repairs' | string; // Allow string for flexibility
-  pricingType: 'hourly' | 'per_work';
-  price: number;
-  availability?: string; // e.g., "Mon-Fri 9am-5pm"
-  icon?: string;
-  level?: string; // For tutoring: e.g., "High School", "Middle School"
-  subject?: string; // For tutoring: e.g., "Math", "Science"
-  unavailableSlots?: Array<{ start: string; end: string }>; // For simulating provider unavailability
-}
-
-export interface Booking {
-  id: string;
-  customer: User;
-  provider_id: number;
-  service_id: number;
-  bookingDate: string; // ISO string
-  serviceDateTime: string; // ISO string for when the service is scheduled
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
-  notes?: string;
-  priceAtBooking: number;
-  pricingTypeAtBooking: 'hourly' | 'per_work';
-}
 
 export interface Feedback {
   id: string;

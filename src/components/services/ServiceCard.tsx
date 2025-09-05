@@ -7,9 +7,9 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
-import type { Service } from "../../lib/types";
 import { Tag, Clock, DollarSign, Layers } from "lucide-react";
 import { Link } from "react-router-dom";
+import type { Service } from "../../types/Service";
 
 interface ServiceCardProps {
   service: Service;
@@ -60,7 +60,7 @@ export default function ServiceCard({
             asChild
             className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
           >
-            <Link to={`/book/${service.service_id}`}>Book This Service</Link>
+            <Link to={`/book/${service.serviceId}`}>Book This Service</Link>
           </Button>
         </CardFooter>
       )}

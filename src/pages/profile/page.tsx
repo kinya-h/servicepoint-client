@@ -1,6 +1,5 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
 import {
   Loader2,
   UserCog,
@@ -24,18 +23,24 @@ import {
   CardTitle,
   CardDescription,
 } from "../../components/ui/card";
+import { useSelector } from "react-redux";
+import type { RootState } from "../../store";
 
 export default function ProfilePage() {
-  const { user, isLoading } = useAuth();
+  const {
+    loginResponse,
+    isAuthenticated,
+    loading: isLoading,
+  } = useSelector((state: RootState) => state.users);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (!isLoading && !isAuthenticated) {
       navigate("/auth/login");
     }
-  }, [user, isLoading, navigate]);
+  }, [isAuthenticated, , isLoading, navigate]);
 
-  if (isLoading || !user) {
+  if (isLoading || !loginResponse) {
     return (
       <div className="flex justify-center items-center h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -49,7 +54,7 @@ export default function ProfilePage() {
         <CardHeader>
           <CardTitle className="text-3xl font-headline">My Profile</CardTitle>
           <CardDescription className="text-lg">
-            Manage your account details, {user.name}.
+            Manage your account details, {loginResponse?.user?.username}.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -75,12 +80,12 @@ export default function ProfilePage() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="personal-details">
-          <PersonalDetailsForm user={user} />
+          <PersonalDetailsForm user={loginResponse?.user} />
         </TabsContent>
-        <TabsContent value="address-book">
+        {/* <TabsContent value="address-book">
           <AddressBookSection addresses={user.addresses || []} />
-        </TabsContent>
-        <TabsContent value="preferences">
+        </TabsContent> */}
+        {/* <TabsContent value="preferences">
           <PreferencesSection
             communicationPrefs={
               user.communicationPreferences || {
@@ -98,7 +103,7 @@ export default function ProfilePage() {
           <FavoriteProvidersSection
             favoriteIds={user.favoriteProviderIds || []}
           />
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
     </div>
   );

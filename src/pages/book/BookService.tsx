@@ -34,8 +34,8 @@ import { Loader2, ArrowLeft } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "../../store";
 import { getServices } from "../../services/local-service";
-import type { Service } from "../../lib/types";
 import { createBooking } from "../../services/booking-service";
+import type { Service } from "../../types/Service";
 
 // Define your schemas
 const generalBookingSchema = z.object({
@@ -137,7 +137,7 @@ const BookServicePage: React.FC = () => {
   useEffect(() => {
     if (!servicesLoading && serviceId) {
       const foundService = services.find(
-        (service) => service.service_id?.toString() === serviceId
+        (service) => service.serviceId?.toString() === serviceId
       );
       setService(foundService as Service);
       setPageLoading(false);
@@ -148,19 +148,17 @@ const BookServicePage: React.FC = () => {
     if (!service || !loginResponse) return;
     console.log("General Booking submitted:", {
       ...values,
-      serviceId,
-      customer_id: loginResponse?.user?.id,
-      provider_id: service.provider_id,
+      customerId: loginResponse?.user?.id,
+      serviceId: service.serviceId,
     });
 
-    dispatch(
-      createBooking({
-        ...values,
-        service_id: serviceId,
-        customer_id: loginResponse?.user?.id,
-        provider_id: service.provider_id,
-      })
-    );
+    // dispatch(
+    //   createBooking({
+    //     ...values,
+    //     customer: loginResponse?.user,
+    //     service: service,
+    //   })
+    // );
     toast({
       title: "Booking Confirmed (Mock)",
       description: `Your booking for ${service.name} on ${new Date(
@@ -176,7 +174,7 @@ const BookServicePage: React.FC = () => {
       ...values,
       serviceId,
       customerId: loginResponse.user.id,
-      providerId: service.provider_id,
+      providerId: service.serviceId,
     });
 
     toast({

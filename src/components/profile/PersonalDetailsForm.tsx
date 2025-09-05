@@ -18,12 +18,15 @@ import {
   CardHeader,
   CardTitle,
 } from "../../components/ui/card";
-import { useAuth } from "../../hooks/useAuth";
-import type { User } from "../../lib/types";
-import { Loader2, Save } from "lucide-react"; // Removed UserCircle
+import type { User, UserInfo } from "../../lib/types";
+import { Loader2, Save } from "lucide-react";
+import type { RootState } from "../../store";
+import { useSelector } from "react-redux";
+import { updateUserProfile } from "../../services/user-service";
+import { useAppDispatch } from "../../hooks/hooks";
 
 const personalDetailsSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters."),
+  username: z.string().min(2, "Username must be at least 2 characters."),
   email: z.string().email("Invalid email address."),
   phoneNumber: z.string().optional(),
 });
@@ -31,25 +34,34 @@ const personalDetailsSchema = z.object({
 type PersonalDetailsFormValues = z.infer<typeof personalDetailsSchema>;
 
 interface PersonalDetailsFormProps {
-  user: User;
+  user: UserInfo;
 }
 
 export default function PersonalDetailsForm({
   user,
 }: PersonalDetailsFormProps) {
-  const { updateUserProfile, isLoading: authLoading } = useAuth();
+  const { loading: authLoading } = useSelector(
+    (state: RootState) => state.users
+  );
+
+  const dispatch = useAppDispatch();
 
   const form = useForm<PersonalDetailsFormValues>({
     resolver: zodResolver(personalDetailsSchema),
     defaultValues: {
-      name: user.name || "",
-      email: user.email || "",
-      phoneNumber: user.phoneNumber || "",
+      username: user?.username || "",
+      email: user?.email || "",
+      phoneNumber: user?.phoneNumber || "",
     },
   });
 
   async function onSubmit(values: PersonalDetailsFormValues) {
-    await updateUserProfile(values);
+    const response = await dispatch(
+      updateUserProfile({ ...values, id: user.id })
+    );
+
+    console.log("Response after update: ", response);
+
     form.reset(values);
   }
 
@@ -66,8 +78,8 @@ export default function PersonalDetailsForm({
       <CardContent className="space-y-6">
         <div className="flex flex-col items-center space-y-4">
           <img
-            src={user.profilePicture || "https://placehold.co/120x120.png"}
-            alt={user.name || "User"}
+            src={user?.profilePicture || "https://placehold.co/120x120.png"}
+            alt={user?.username || "User"}
             width={120}
             height={120}
             className="rounded-full border-2 border-primary object-cover"
@@ -78,12 +90,12 @@ export default function PersonalDetailsForm({
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="name"
+              name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Full Name</FormLabel>
+                  <FormLabel>Username</FormLabel>
                   <FormControl>
-                    <Input placeholder="Your full name" {...field} />
+                    <Input placeholder="Your username" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

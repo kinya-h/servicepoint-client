@@ -1,5 +1,3 @@
-import { useAuth } from "../../hooks/useAuth";
-
 import { useEffect, useState } from "react";
 import {
   Card,
@@ -26,10 +24,12 @@ import {
   ListChecks,
   PenTool,
 } from "lucide-react";
-import type { Booking, User } from "../../lib/types"; // Assuming Booking and User types are defined
+import type { ProviderInfo, User, UserInfo } from "../../lib/types"; // Assuming Booking and User types are defined
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../store";
+import type { Booking } from "../../types/booking";
+import type { Service } from "../../types/Service";
 
 interface ProviderDashboardData {
   earnings: {
@@ -67,10 +67,10 @@ const mockProviderDashboardData: ProviderDashboardData = {
   },
   upcomingBookings: [
     {
-      id: "pb1",
-      customer: {} as User,
-      providerId: "admin_provider_001",
-      serviceId: "s_tut_math_adv",
+      id: 1,
+      customer: {} as UserInfo,
+      provider: {} as ProviderInfo,
+      service: {} as Service,
       serviceName: "Advanced Math Tutoring",
       customerName: "Alice Wonderland",
       bookingDate: new Date().toISOString(),
@@ -82,10 +82,10 @@ const mockProviderDashboardData: ProviderDashboardData = {
       pricingTypeAtBooking: "hourly",
     },
     {
-      id: "pb2",
-      customer: {} as User,
-      providerId: "admin_provider_001",
-      serviceId: "hr1_s1",
+      id: 2,
+      customer: {} as UserInfo,
+      provider: {} as ProviderInfo,
+      service: {} as Service,
       serviceName: "General Handyman Services",
       customerName: "Bob The Builder",
       bookingDate: new Date().toISOString(),

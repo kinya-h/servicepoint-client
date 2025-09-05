@@ -10,28 +10,31 @@ import { axiosInstance } from "../lib/axios-instance";
 
 
 
-export const loginUser = createAsyncThunk<LoginResponse,{username:string, password:string}>('users/login', async ({username, password}) => {
-    
-    const response = await axios.post(`${API_URL}/users/login`, {
+export const loginUser =
+  createAsyncThunk<LoginResponse, { username: string, password: string }>
+    ('users/login', async ({ username, password }) => {
+
+      const response = await axios.post(`${API_URL}/api/auth/login`, {
         username,
         password
-    })
-    
-    if (response.status === 200) {
+      })
+      console.log(response)
+
+      if (response.status === 200) {
         // Store the JWT token in local storage.
-        localStorage.setItem("tokens", JSON.stringify({access:response.data.access_token,refresh:response.data.access_token}));
+        localStorage.setItem("tokens", JSON.stringify({ access: response.data.accessToken, refresh: response.data.refreshToken }));
       }
-    
       return response.data as LoginResponse;
-  })
+
+    })
 
 
 
-  export const signUpUser = createAsyncThunk<
+export const signUpUser = createAsyncThunk<
   User,
-  { username: string; email: string; password: string, role:string }
+  { username: string; email: string; password: string, role: string }
 >("auth/register", async ({ username, email, password, role }) => {
-  const response = await axios.post(`${API_URL}/users/register`, {
+  const response = await axios.post(`${API_URL}/api/auth/register`, {
     username,
     email,
     password,
@@ -43,17 +46,30 @@ export const loginUser = createAsyncThunk<LoginResponse,{username:string, passwo
 });
 
 
+export const updateUserProfile = createAsyncThunk(
+  "users/updateUser",
+  async (user: Partial<User>, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.put<User>(`/api/users/${user.id}/profile`, user);
+      return response.data;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
+
 export const getLoggedInUser = createAsyncThunk<User>("user/fetch", async () => {
-  const response = await axiosInstance.get(`${API_URL}/users/me`);
+  const response = await axiosInstance.get(`${API_URL}/api/users/me`);
 
   return response.data as User;
 });
 
 
-export const logoutUser = createAsyncThunk("user/logout" , async ()=>{
+export const logoutUser = createAsyncThunk("user/logout", async () => {
   if (typeof window !== "undefined") {
     localStorage.removeItem("tokens");
 
   }
-  
+
 })

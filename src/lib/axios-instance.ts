@@ -15,14 +15,11 @@ export const axiosInstance: AxiosInstance = axios.create({
   baseURL: API_URL,
 });
 
-// const state = store.getState();
-// const accessToken = state.auth.user.token; 
-const accessToken = getAccessToken(); 
 
-// Add a request interceptor to update the Authorization header
 axiosInstance.interceptors.request.use(
   (config) => {
-    // const accessToken = access();
+    // Get the token fresh on each request
+    const accessToken = getAccessToken();
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }

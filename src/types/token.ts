@@ -1,14 +1,13 @@
-import type { User } from "./user";
+import type { UserInfo } from "../lib/types";
 
 
 
 
 
 export interface LoginResponse {
-    session_id: string;
-    access_token: string;
-    access_token_expires_at: string;
-    refresh_token: string;
-    refresh_token_expires_at: string;
-    user: User;
+    accessToken: string;
+    refreshToken: string;
+    accessTokenExpiresIn: number;
+    refreshTokenExpiresIn: number;
+    user: UserInfo;
 }

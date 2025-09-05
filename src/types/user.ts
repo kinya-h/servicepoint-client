@@ -2,11 +2,26 @@ import type { Address, CommunicationPreferences, PaymentPreferences } from "../l
 
 
 
-
-
+export interface UserResponse {
+    userId: number;
+    username: string;
+    email: string;
+    role: string;
+    profilePicture: string | null;
+    location: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    phoneNumber: string | null;
+    rating: number | null;
+    reviewCount: number | null;
+    distanceMiles: number | null;
+    lastLogin: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
 
 export type User = {
-    id?:number;
+    id?: number;
     username: string;
     password: string;
     email?: string;
