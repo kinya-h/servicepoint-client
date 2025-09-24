@@ -97,6 +97,8 @@ export const providersSlice = createSlice({
         state.searchError = null;
       })
       .addCase(searchProvidersNearbyByService.fulfilled, (state, action) => {
+
+        //TODO:: fix and set state (nearbyService)  
         state.searchLoading = false;
         state.searchResults = action.payload;
         state.searchError = null;

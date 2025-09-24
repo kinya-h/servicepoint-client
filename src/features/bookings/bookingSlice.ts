@@ -29,10 +29,15 @@ export const bookingsSlice = createSlice({
         state.bookings.push(action.payload);
       })
       .addCase(updateBooking.fulfilled, (state, action) => {
-        const index = state.bookings.findIndex(booking => booking.id === action.payload.id);
-        if (index !== -1) {
-          state.bookings[index] = action.payload;
-        }
+        // const index = state.bookings.findIndex(booking => booking.id === action.payload.id);
+        // if (index !== -1) {
+        //   state.bookings[index] = action.payload;
+        // }
+
+        state.bookings = state.bookings.map((booking) =>
+          booking.id === action.payload.id ? action.payload : booking
+        );
+
       })
 
       .addCase(fetchProviderBookings.fulfilled, (state, action) => {

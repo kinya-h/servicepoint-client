@@ -52,6 +52,8 @@ export const searchProvidersNearbyByService = createAsyncThunk<
 >(
   "providers/searchProvidersNearbyByService",
   async (searchRequest) => {
+
+    console.log("RUNNING...............")
     // Client-side validation
     if (!searchRequest.category || searchRequest.category.trim() === '') {
       throw new Error('Category is required');

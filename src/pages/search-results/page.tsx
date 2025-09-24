@@ -49,19 +49,22 @@ const SearchResultsContent: React.FC = () => {
   const [searchParams] = useSearchParams();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+
   const providers = useSelector(selectNearbyProviders);
   const { loading: providersLoading } = useSelector(
     (state: RootState) => state.providers
   );
-  const [providerLocation, setProviderLocation] = useState("");
 
+  const [providerLocation, setProviderLocation] = useState("");
   const { loginResponse, loading: authIsLoading } = useSelector(
     (state: RootState) => state.users
   );
+
   const loading = useSelector(selectNearbyProvidersLoading);
   const [filteredProviders, setFilteredProviders] = useState<
     ProviderWithUser[]
   >([]);
+
   const [pageIsLoading, setPageIsLoading] = useState<boolean>(true);
   const [currentSearchTerms, setCurrentSearchTerms] = useState<SearchTerms>({
     category: "",
@@ -191,6 +194,8 @@ const SearchResultsContent: React.FC = () => {
 
       setTimeout(() => {
         let results = [...providers];
+
+        console.log("Providers => ", results);
         const parsedSearchCoords = parseLatLon(providerLocation);
 
         if (parsedSearchCoords) {
@@ -242,7 +247,7 @@ const SearchResultsContent: React.FC = () => {
 
         if (currentSearchTerms.subject) {
           results = results.filter((provider) =>
-            provider.service?.subject
+            provider.service?.category
               ?.toLowerCase()
               .includes(currentSearchTerms.subject.toLowerCase())
           );

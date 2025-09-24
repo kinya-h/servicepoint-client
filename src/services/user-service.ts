@@ -73,3 +73,37 @@ export const logoutUser = createAsyncThunk("user/logout", async () => {
   }
 
 })
+
+
+
+export const changePassword = createAsyncThunk<
+  { message: string },
+  { currentPassword: string; newPassword: string }
+>("users/changePassword", async (payload, { rejectWithValue }) => {
+  try {
+    const response = await axiosInstance.post(
+      `${API_URL}/api/users/change-password`,
+      payload
+    );
+    return response.data as { message: string };
+  } catch (err: any) {
+    return rejectWithValue(err.response?.data?.message || err.message);
+  }
+});
+
+export const deleteAccount = createAsyncThunk<
+  { message: string },
+  number
+>("users/deleteAccount", async (userId, { rejectWithValue }) => {
+  try {
+    const response = await axiosInstance.delete(
+      `${API_URL}/api/users/${userId}`
+    );
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("tokens");
+    }
+    return response.data as { message: string };
+  } catch (err: any) {
+    return rejectWithValue(err.response?.data?.message || err.message);
+  }
+});

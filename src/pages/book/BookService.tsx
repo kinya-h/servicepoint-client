@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { ToastContainer, toast } from "react-toastify";
 import {
   Card,
   CardContent,
@@ -29,7 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { useToast } from "../../hooks/use-toast";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "../../store";
@@ -87,7 +87,6 @@ const BookServicePage: React.FC = () => {
     (state: RootState) => state.services
   );
 
-  const { toast } = useToast();
   const [service, setService] = useState<Service>({} as Service);
   const [pageLoading, setPageLoading] = useState(true);
 
@@ -122,11 +121,8 @@ const BookServicePage: React.FC = () => {
 
   useEffect(() => {
     if (!authIsLoading && !loginResponse) {
-      toast({
-        title: "Login Required",
-        description: "Please login to book a service.",
-        variant: "destructive",
-      });
+      toast.error(`Login Required, Please login to book a service.`);
+
       navigate(`/auth/login?redirect=/book/${serviceId}`);
       return;
     }
@@ -144,7 +140,7 @@ const BookServicePage: React.FC = () => {
     }
   }, [services, servicesLoading, serviceId]);
 
-  const handleGeneralSubmit = (values: GeneralBookingFormValues) => {
+  const handleGeneralSubmit = async (values: GeneralBookingFormValues) => {
     if (!service || !loginResponse) return;
     console.log("General Booking submitted:", {
       ...values,
@@ -152,20 +148,41 @@ const BookServicePage: React.FC = () => {
       serviceId: service.serviceId,
     });
 
-    // dispatch(
-    //   createBooking({
-    //     ...values,
-    //     customer: loginResponse?.user,
-    //     service: service,
-    //   })
-    // );
-    toast({
-      title: "Booking Confirmed (Mock)",
-      description: `Your booking for ${service.name} on ${new Date(
-        values.serviceDateTime
-      ).toLocaleDateString()} is confirmed.`,
-    });
-    navigate("/dashboard/bookings");
+    // private Integer customerId;
+    //     private Integer providerId;
+    //     private Integer serviceId;
+    //     private Timestamp bookingDate;
+    //     private Timestamp serviceDateTime;
+    //     private String status;
+    //     private String notes;
+    //     private Double priceAtBooking;
+    //     private String pricingTypeAtBooking;
+
+    // status, provider, bookingDate, priceAtBooking, pricingTypeAtBooking
+    const response = await dispatch(
+      createBooking({
+        ...values,
+        customer: loginResponse?.user,
+        service: service,
+        status: "pending",
+        provider: service.provider,
+        bookingDate: new Date().toISOString().split("T")[0],
+        priceAtBooking: service.price,
+        pricingTypeAtBooking: service.pricingType,
+      })
+    );
+
+    if (response.meta.requestStatus === "fulfilled") {
+      toast.success(
+        `Booking Confirmed! Your booking for ${service.name} on ${new Date(
+          values.serviceDateTime
+        ).toLocaleDateString()} is confirmed.`
+      );
+
+      setTimeout(() => {
+        navigate("/dashboard/bookings");
+      }, 2000);
+    }
   };
 
   const handleTutoringSubmit = (values: TutoringBookingFormValues) => {
@@ -177,10 +194,10 @@ const BookServicePage: React.FC = () => {
       providerId: service.serviceId,
     });
 
-    toast({
-      title: "Session Booked (Mock)",
-      description: `Your tutoring session for ${service.name} is booked.`,
-    });
+    toast.success(
+      `Session Booked! tutoring session for ${service.name} is booked.`
+    );
+
     navigate("/dashboard/bookings");
   };
 
@@ -195,6 +212,7 @@ const BookServicePage: React.FC = () => {
   if (!service) {
     return (
       <div className="max-w-xl mx-auto space-y-4">
+        <ToastContainer />
         <Button
           variant="outline"
           onClick={() => navigate(-1)}

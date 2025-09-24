@@ -61,7 +61,7 @@ export default function DashboardPage() {
     },
     {
       name: "Submit Feedback",
-      href: "/dashboard/feedback/new",
+      href: "/dashboard/bookings/user-feedback",
       icon: MessageSquarePlus,
       description: "Provide feedback for completed services.",
     },

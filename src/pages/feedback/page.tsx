@@ -27,11 +27,12 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useToast } from "../../hooks/use-toast";
-import { mockBookingDetails } from "../../data/bookings";
-import type { BookingDetails, MockBookingDetails } from "../../types/booking";
-import { useSelector } from "react-redux";
+import { Bounce, toast, ToastContainer } from "react-toastify";
+import { useSelector, useDispatch } from "react-redux";
 import type { RootState } from "../../store";
+import type { Booking } from "../../types/booking";
+import { createFeedback } from "../../services/feedback-service";
+import { useAppDispatch } from "../../hooks/hooks";
 
 // Define the feedback schema
 const feedbackSchema = z.object({
@@ -41,23 +42,26 @@ const feedbackSchema = z.object({
     .max(500, "Feedback cannot exceed 500 characters."),
 });
 
-// // Mock data - replace with API calls
-// const mockBookingDetails = {
-//   "b1": { id: "b1", serviceId: "s1", providerId: "p1", serviceName: "Emergency Pipe Repair", providerName: "John's Plumbing" },
-// };
+type FeedbackFormData = z.infer<typeof feedbackSchema>;
 
 export default function SubmitFeedbackPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+
   const { loginResponse, loading: authIsLoading } = useSelector(
     (state: RootState) => state.users
   );
-  const { toast } = useToast();
+  const { bookings } = useSelector((state: RootState) => state.bookings);
+  const { status: feedbackStatus } = useSelector(
+    (state: RootState) => state.feedback
+  );
+
   const bookingId = searchParams.get("bookingId");
-  const [bookingInfo, setBookingInfo] = useState<BookingDetails | null>(null);
+  const [bookingInfo, setBookingInfo] = useState<Booking | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
 
-  const form = useForm({
+  const form = useForm<FeedbackFormData>({
     resolver: zodResolver(feedbackSchema),
     defaultValues: {
       comments: "",
@@ -70,38 +74,68 @@ export default function SubmitFeedbackPage() {
         navigate("/auth/login");
         return;
       }
+
       if (!bookingId) {
-        toast({
-          title: "Error",
-          description: "No booking ID provided.",
-          variant: "destructive",
-        });
+        toast.error("No booking ID provided.");
         navigate("/dashboard/bookings");
         return;
       }
-      // Simulate fetching booking details
-      setTimeout(() => {
-        const foundBooking = mockBookingDetails[bookingId];
-        setBookingInfo(foundBooking || null);
-        setPageLoading(false);
-      }, 300);
-    }
-  }, [bookingId, authIsLoading, loginResponse, navigate, toast]);
 
-  const onSubmit = (values: any) => {
+      // Find booking from Redux store
+      const foundBooking = bookings.find(
+        (booking) => booking.id.toString() === bookingId
+      );
+
+      if (!foundBooking) {
+        toast.error("Booking not found or you don't have access to it.");
+        navigate("/dashboard/bookings");
+        return;
+      }
+
+      // Verify the booking belongs to the current user
+      if (foundBooking?.customer?.id !== loginResponse?.user?.id) {
+        toast.error("You can only submit feedback for your own bookings.");
+        navigate("/dashboard/bookings");
+        return;
+      }
+
+      // Check if booking is completed (optional business rule)
+      if (foundBooking.status !== "completed") {
+        toast.error("You can only submit feedback for completed bookings.");
+        navigate("/dashboard/bookings");
+        return;
+      }
+
+      setBookingInfo(foundBooking);
+      setPageLoading(false);
+    }
+  }, [bookingId, authIsLoading, loginResponse, bookings, navigate]);
+
+  const onSubmit = async (values: FeedbackFormData) => {
     if (!bookingInfo || !loginResponse) return;
-    // Mock feedback submission
-    console.log("Feedback submitted:", {
-      ...values,
-      bookingId: bookingInfo.id,
-      customerId: loginResponse.user.id,
-      providerId: bookingInfo.providerId,
-    });
-    toast({
-      title: "Feedback Submitted",
-      description: `Thank you for your feedback on ${bookingInfo.serviceName}!`,
-    });
-    navigate("/dashboard/bookings");
+
+    try {
+      const feedbackData = {
+        bookingId: bookingInfo.id,
+        customerId: loginResponse.user.id,
+        providerId: bookingInfo?.provider?.id,
+        comments: values.comments,
+        submissionDate: new Date().toISOString(),
+      };
+
+      const result = await dispatch(createFeedback(feedbackData));
+
+      if (createFeedback.fulfilled.match(result)) {
+        toast.success(
+          `Thank you for your feedback on ${bookingInfo.service.name}!`
+        );
+        navigate("/dashboard/bookings");
+      } else {
+        throw new Error("Failed to submit feedback");
+      }
+    } catch (error) {
+      toast.error("Failed to submit feedback. Please try again.");
+    }
   };
 
   if (authIsLoading || pageLoading) {
@@ -144,6 +178,19 @@ export default function SubmitFeedbackPage() {
 
   return (
     <div className="max-w-xl mx-auto space-y-8">
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick={false}
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+        transition={Bounce}
+      />
       <Button
         variant="outline"
         onClick={() => navigate(-1)}
@@ -161,11 +208,34 @@ export default function SubmitFeedbackPage() {
           </div>
           <CardDescription>
             Share your experience for the service:{" "}
-            <span className="font-semibold">{bookingInfo.serviceName}</span> by{" "}
-            <span className="font-semibold">{bookingInfo.providerName}</span>.
+            <span className="font-semibold">{bookingInfo.service.name}</span> by{" "}
+            <span className="font-semibold">
+              {bookingInfo.provider.username}
+            </span>
+            .
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-6 p-4 bg-muted rounded-lg">
+            <h3 className="font-semibold mb-2">Booking Details:</h3>
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <p>
+                <strong>Service:</strong> {bookingInfo.service.name}
+              </p>
+              <p>
+                <strong>Provider:</strong> {bookingInfo.provider.username}
+              </p>
+              <p>
+                <strong>Date:</strong>{" "}
+                {new Date(bookingInfo.serviceDateTime).toLocaleDateString()}
+              </p>
+              <p>
+                <strong>Status:</strong>{" "}
+                <span className="capitalize">{bookingInfo.status}</span>
+              </p>
+            </div>
+          </div>
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
@@ -176,7 +246,7 @@ export default function SubmitFeedbackPage() {
                     <FormLabel>Your Feedback</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Tell us about your experience..."
+                        placeholder="Tell us about your experience with this service..."
                         className="resize-y min-h-[120px]"
                         {...field}
                       />
@@ -187,10 +257,12 @@ export default function SubmitFeedbackPage() {
               />
               <Button
                 type="submit"
-                disabled={form.formState.isSubmitting}
+                disabled={
+                  form.formState.isSubmitting || feedbackStatus === "loading"
+                }
                 className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
               >
-                {form.formState.isSubmitting ? (
+                {form.formState.isSubmitting || feedbackStatus === "loading" ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Send className="mr-2 h-4 w-4" />
