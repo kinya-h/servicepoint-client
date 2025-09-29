@@ -1,16 +1,8 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
-import {
-  selectNearbyProviders,
-  selectNearbyProvidersLoading,
-} from "../../features/provider/providerSlice";
 import { useAppDispatch } from "../../hooks/hooks";
-import {
-  fetchProviders,
-  fetchProvidersNearbyByService,
-  searchProvidersNearbyByService,
-} from "../../services/provider-service";
-import type { Provider, ProviderWithUser } from "../../types/provider";
+import { fetchProviders } from "../../services/provider-service";
+import type { ProviderWithUser } from "../../types/provider";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { RootState } from "../../store";
 import {
@@ -36,44 +28,32 @@ interface SearchFormValues {
   ratingSortOrder?: string;
 }
 
-interface SearchTerms {
-  category: string;
-  latitude: number | null;
-  longitude: number | null;
-  level: string;
-  radius: number;
-  subject: string;
-}
-
 const SearchResultsContent: React.FC = () => {
   const [searchParams] = useSearchParams();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
-  const providers = useSelector(selectNearbyProviders);
-  const { loading: providersLoading } = useSelector(
+  const { providers, loading: providersLoading } = useSelector(
     (state: RootState) => state.providers
   );
-
-  const [providerLocation, setProviderLocation] = useState("");
   const { loginResponse, loading: authIsLoading } = useSelector(
     (state: RootState) => state.users
   );
 
-  const loading = useSelector(selectNearbyProvidersLoading);
   const [filteredProviders, setFilteredProviders] = useState<
     ProviderWithUser[]
   >([]);
-
   const [pageIsLoading, setPageIsLoading] = useState<boolean>(true);
-  const [currentSearchTerms, setCurrentSearchTerms] = useState<SearchTerms>({
-    category: "",
-    latitude: null,
-    longitude: null,
-    level: "",
-    radius: 10.0,
-    subject: "",
-  });
+
+  // Get search parameters from URL
+  const serviceType = searchParams.get("serviceType") || "";
+  const location = searchParams.get("location") || "";
+  const level = searchParams.get("level") || "";
+  const subject = searchParams.get("subject") || "";
+  const tutorNameFilter = searchParams.get("tutorNameFilter") || "";
+  const homeRepairSubCategory = searchParams.get("homeRepairSubCategory") || "";
+  const providerNameFilter = searchParams.get("providerNameFilter") || "";
+  const ratingSortOrder = searchParams.get("ratingSortOrder") || "";
 
   function parseLatLon(locationString: string) {
     const match = locationString.match(/Near Lat: ([-\d.]+), Lon: ([-\d.]+)/);
@@ -82,90 +62,6 @@ const SearchResultsContent: React.FC = () => {
     }
     return null;
   }
-
-  // Memoize the search function to prevent unnecessary re-renders
-  const handleSearch = useCallback(() => {
-    console.log("search terms: ", currentSearchTerms);
-    if (
-      currentSearchTerms.category &&
-      currentSearchTerms.latitude !== null &&
-      currentSearchTerms.longitude !== null
-    ) {
-      console.log("Dispatching search with:", currentSearchTerms);
-      dispatch(
-        searchProvidersNearbyByService({
-          category: currentSearchTerms.category,
-          latitude: currentSearchTerms.latitude,
-          longitude: currentSearchTerms.longitude,
-          radius: currentSearchTerms.radius,
-          limit: 20,
-          offset: 1,
-        })
-      );
-    } else {
-      console.log("Missing required search parameters:", {
-        category: currentSearchTerms.category,
-        latitude: currentSearchTerms.latitude,
-        longitude: currentSearchTerms.longitude,
-      });
-    }
-  }, [dispatch, currentSearchTerms]);
-
-  // Handle authentication and initial setup
-  useEffect(() => {
-    if (authIsLoading) return;
-
-    if (!loginResponse) {
-      const currentPath = window.location.pathname + window.location.search;
-      navigate(`/auth/login?redirect=${encodeURIComponent(currentPath)}`);
-      return;
-    }
-
-    // Fetch initial providers data
-    dispatch(fetchProviders());
-  }, [authIsLoading, loginResponse, navigate, dispatch]);
-
-  // Handle URL parameter changes and update search terms
-  useEffect(() => {
-    if (authIsLoading || !loginResponse) return;
-
-    const category = searchParams.get("serviceType") || "";
-    const location = searchParams.get("location") || "";
-    const level = searchParams.get("level") || "";
-    const subject = searchParams.get("subject") || "";
-
-    setProviderLocation(location);
-
-    const parsedCoords = parseLatLon(location);
-
-    const newSearchTerms: SearchTerms = {
-      category,
-      latitude: parsedCoords?.lat || null,
-      longitude: parsedCoords?.long || null,
-      level,
-      radius: 10.0,
-      subject,
-    };
-
-    console.log("Updating search terms:", newSearchTerms);
-    setCurrentSearchTerms(newSearchTerms);
-  }, [searchParams, authIsLoading, loginResponse]);
-
-  // Trigger search when search terms change
-  useEffect(() => {
-    if (authIsLoading || !loginResponse) return;
-
-    // Only search if we have the minimum required parameters
-    if (
-      currentSearchTerms.category &&
-      currentSearchTerms.latitude !== null &&
-      currentSearchTerms.longitude !== null
-    ) {
-      console.log("Search terms changed, triggering search");
-      setPageIsLoading(true);
-      handleSearch();
-    }
-  }, [currentSearchTerms, authIsLoading, loginResponse, handleSearch]);
 
   function isNear(
     providerLat: number | undefined,
@@ -187,81 +83,183 @@ const SearchResultsContent: React.FC = () => {
     return latDiff < thresholdDegrees && lonDiff < thresholdDegrees;
   }
 
-  // Filter providers when they're loaded
+  // Handle authentication and initial setup
   useEffect(() => {
-    if (!providersLoading && providers.length > 0) {
-      console.log("Filtering providers:", providers.length);
+    if (authIsLoading) return;
 
-      setTimeout(() => {
-        let results = [...providers];
-
-        console.log("Providers => ", results);
-        const parsedSearchCoords = parseLatLon(providerLocation);
-
-        if (parsedSearchCoords) {
-          results = results.filter(
-            (provider) =>
-              provider.user.latitude !== undefined &&
-              provider.user.longitude !== undefined &&
-              isNear(
-                provider.user?.latitude!,
-                provider.user?.longitude!,
-                parsedSearchCoords.lat,
-                parsedSearchCoords.long
-              )
-          );
-        } else if (
-          providerLocation &&
-          currentSearchTerms.category === "Tutoring" &&
-          providerLocation.toLowerCase() === "online"
-        ) {
-          results = results.filter(
-            (provider) => provider.user.location?.toLowerCase() === "online"
-          );
-        } else if (providerLocation) {
-          results = results.filter((provider) =>
-            provider.user.location
-              ?.toLowerCase()
-              .includes(providerLocation?.toLowerCase())
-          );
-        }
-
-        if (currentSearchTerms.category) {
-          results = results.filter((provider) =>
-            provider.service?.category
-              .toLowerCase()
-              .includes(currentSearchTerms.category.toLowerCase())
-          );
-        }
-
-        if (
-          currentSearchTerms.category === "Tutoring" &&
-          currentSearchTerms.level
-        ) {
-          results = results.filter(
-            (provider) =>
-              provider.service?.level?.toLowerCase() ===
-              currentSearchTerms?.level.toLowerCase()
-          );
-        }
-
-        if (currentSearchTerms.subject) {
-          results = results.filter((provider) =>
-            provider.service?.category
-              ?.toLowerCase()
-              .includes(currentSearchTerms.subject.toLowerCase())
-          );
-        }
-
-        console.log("Filtered results:", results.length);
-        setFilteredProviders(results);
-        setPageIsLoading(false);
-      }, 300);
-    } else if (!providersLoading) {
-      // No providers found
-      setPageIsLoading(false);
+    if (!loginResponse) {
+      const currentPath = window.location.pathname + window.location.search;
+      navigate(`/auth/login?redirect=${encodeURIComponent(currentPath)}`);
+      return;
     }
-  }, [providers, providersLoading, currentSearchTerms, providerLocation]);
+
+    // Fetch providers if not already loaded
+    if (providers.length === 0 && !providersLoading) {
+      dispatch(fetchProviders());
+    }
+  }, [
+    authIsLoading,
+    loginResponse,
+    navigate,
+    dispatch,
+    providers.length,
+    providersLoading,
+  ]);
+
+  // Filter providers based on search parameters
+  useEffect(() => {
+    if (authIsLoading || !loginResponse) return;
+
+    if (providersLoading) {
+      setPageIsLoading(true);
+      return;
+    }
+
+    setPageIsLoading(true);
+
+    // Use setTimeout to simulate async filtering and prevent blocking
+    setTimeout(() => {
+      let results = [...providers];
+
+      console.log("Total providers:", results.length);
+
+      // Filter by service category
+      if (serviceType) {
+        results = results.filter((provider) =>
+          provider.service?.category
+            .toLowerCase()
+            .includes(serviceType.toLowerCase())
+        );
+        console.log(`After category filter (${serviceType}):`, results.length);
+      }
+
+      // Filter by location
+      const parsedSearchCoords = parseLatLon(location);
+
+      if (parsedSearchCoords) {
+        // Location-based filtering using coordinates
+        results = results.filter(
+          (provider) =>
+            provider.user.latitude !== undefined &&
+            provider.user.longitude !== undefined &&
+            isNear(
+              provider.user.latitude as number,
+              provider.user.longitude,
+              parsedSearchCoords.lat,
+              parsedSearchCoords.long
+            )
+        );
+        console.log("After coordinate filter:", results.length);
+      } else if (
+        location &&
+        serviceType === "Tutoring" &&
+        location.toLowerCase() === "online"
+      ) {
+        // Special case for online tutoring
+        results = results.filter(
+          (provider) => provider.user.location?.toLowerCase() === "online"
+        );
+        console.log("After online filter:", results.length);
+      } else if (location) {
+        // Text-based location filtering
+        results = results.filter((provider) =>
+          provider.user.location?.toLowerCase().includes(location.toLowerCase())
+        );
+        console.log("After text location filter:", results.length);
+      }
+
+      // Filter by level (for Tutoring)
+      if (serviceType === "Tutoring" && level) {
+        results = results.filter(
+          (provider) =>
+            provider.service?.level?.toLowerCase() === level.toLowerCase()
+        );
+        console.log(`After level filter (${level}):`, results.length);
+      }
+
+      // Filter by subject
+      if (subject) {
+        results = results.filter((provider) =>
+          provider.service?.subject
+            ?.toLowerCase()
+            .includes(subject.toLowerCase())
+        );
+        console.log(`After subject filter (${subject}):`, results.length);
+      }
+
+      // Filter by tutor name
+      if (tutorNameFilter) {
+        results = results.filter((provider) =>
+          provider.user.username
+            ?.toLowerCase()
+            .includes(tutorNameFilter.toLowerCase())
+        );
+        console.log(
+          `After tutor name filter (${tutorNameFilter}):`,
+          results.length
+        );
+      }
+
+      // Filter by home repair sub-category
+      if (homeRepairSubCategory && homeRepairSubCategory !== "all") {
+        results = results.filter((provider) =>
+          provider.service?.name
+            ?.toLowerCase()
+            .includes(homeRepairSubCategory.toLowerCase())
+        );
+        console.log(
+          `After sub-category filter (${homeRepairSubCategory}):`,
+          results.length
+        );
+      }
+
+      // Filter by provider name
+      if (providerNameFilter) {
+        results = results.filter((provider) =>
+          provider.user.username
+            ?.toLowerCase()
+            .includes(providerNameFilter.toLowerCase())
+        );
+        console.log(
+          `After provider name filter (${providerNameFilter}):`,
+          results.length
+        );
+      }
+
+      // Sort by rating if specified
+      if (ratingSortOrder && ratingSortOrder !== "none") {
+        results.sort((a, b) => {
+          const ratingA = a.user.rating ?? 0;
+          const ratingB = b.user.rating ?? 0;
+
+          if (ratingSortOrder === "highest") {
+            return ratingB - ratingA;
+          } else if (ratingSortOrder === "lowest") {
+            return ratingA - ratingB;
+          }
+          return 0;
+        });
+        console.log(`After rating sort (${ratingSortOrder})`);
+      }
+
+      console.log("Final filtered results:", results.length);
+      setFilteredProviders(results);
+      setPageIsLoading(false);
+    }, 300);
+  }, [
+    providers,
+    providersLoading,
+    serviceType,
+    location,
+    level,
+    subject,
+    tutorNameFilter,
+    homeRepairSubCategory,
+    providerNameFilter,
+    ratingSortOrder,
+    authIsLoading,
+    loginResponse,
+  ]);
 
   const handleMainSearch = (values: SearchFormValues) => {
     const query = new URLSearchParams();
@@ -287,9 +285,12 @@ const SearchResultsContent: React.FC = () => {
   };
 
   const hasActiveSearch =
-    currentSearchTerms.category ||
-    currentSearchTerms.level ||
-    currentSearchTerms.subject;
+    serviceType ||
+    level ||
+    subject ||
+    location ||
+    tutorNameFilter ||
+    providerNameFilter;
 
   if (authIsLoading || (!loginResponse && !authIsLoading)) {
     return (
@@ -308,11 +309,11 @@ const SearchResultsContent: React.FC = () => {
   }
 
   const PageIcon =
-    providerLocation && parseLatLon(providerLocation)
+    location && parseLatLon(location)
       ? MapPinIcon
-      : currentSearchTerms.category === "Home Repairs"
+      : serviceType === "Home Repairs"
       ? UserSearch
-      : currentSearchTerms.category === "Tutoring"
+      : serviceType === "Tutoring"
       ? BookOpen
       : UserSearch;
 
@@ -327,19 +328,28 @@ const SearchResultsContent: React.FC = () => {
       </Button>
       <section className="bg-card p-2 md:p-4 rounded-lg shadow-lg border">
         <h1 className="text-xl md:text-2xl font-bold font-headline mb-4 text-primary px-2">
-          {currentSearchTerms.category === "Home Repairs"
+          {serviceType === "Home Repairs"
             ? "Refine Home Repair Providers"
-            : currentSearchTerms.category === "Tutoring"
+            : serviceType === "Tutoring"
             ? "Refine Tutors"
             : "Search for Services"}
         </h1>
         <ServiceSearchForm
           onSearch={handleMainSearch}
-          initialValues={currentSearchTerms}
-          isContextualFilterMode={!!currentSearchTerms.category}
+          initialValues={{
+            serviceType,
+            location,
+            level,
+            subject,
+            tutorNameFilter,
+            homeRepairSubCategory,
+            providerNameFilter,
+            ratingSortOrder,
+          }}
+          isContextualFilterMode={!!serviceType}
         />
       </section>
-      {pageIsLoading && loginResponse ? (
+      {pageIsLoading ? (
         <div className="flex justify-center items-center py-10">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
         </div>
@@ -353,10 +363,9 @@ const SearchResultsContent: React.FC = () => {
                 : "No Providers Found"
               : "Please enter search criteria"}
           </h2>
-          {providerLocation && parseLatLon(providerLocation) && (
+          {location && parseLatLon(location) && (
             <p className="text-center text-sm text-muted-foreground -mt-4 mb-6">
-              Showing providers near the specified coordinates. (Simulated
-              spatial search)
+              Showing providers near the specified coordinates.
             </p>
           )}
           {filteredProviders.length > 0 ? (

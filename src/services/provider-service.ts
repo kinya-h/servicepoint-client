@@ -18,23 +18,12 @@ export interface SearchParams {
 
 // Fetch all providers
 export const fetchProviders = createAsyncThunk<
-  ProviderWithUser[],
-  SearchParams | undefined
+  ProviderWithUser[]
 >(
   "providers/fetchProviders",
-  async (searchParams = {}) => {
-    // Build query parameters
-    const params = new URLSearchParams();
+  async () => {
 
-    // Add search parameters to the query string
-    Object.entries(searchParams).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        params.append(key, value.toString());
-      }
-    });
-
-    const queryString = params.toString();
-    const url = `${API_URL}/api/providers${queryString ? `?${queryString}` : ''}`;
+    const url = `${API_URL}/api/providers`;
 
     console.log("Fetching providers with URL:", url);
 

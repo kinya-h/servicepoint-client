@@ -6,11 +6,11 @@ export interface UserResponse {
     userId: number;
     username: string;
     email: string;
-    role: string;
+    role: "customer" | "provider";
     profilePicture: string | null;
     location: string | null;
-    latitude: number | null;
-    longitude: number | null;
+    latitude: number | undefined;
+    longitude: number | undefined;
     phoneNumber: string | null;
     rating: number | null;
     reviewCount: number | null;

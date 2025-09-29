@@ -1,4 +1,3 @@
-"use client";
 import ServiceSearchForm from "../../components/services/ServiceSearchForm";
 import { Button } from "../../components/ui/button";
 import {
@@ -13,7 +12,6 @@ import {
   Trash2,
   type LucideIcon,
 } from "lucide-react";
-import { serviceCategories } from "../../lib/mockData";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../store";
@@ -21,6 +19,7 @@ import React, { useEffect } from "react";
 import { useAppDispatch } from "../../hooks/hooks";
 import { getLoggedInUser } from "../../services/user-service";
 import { getServices } from "../../services/local-service";
+import { fetchProviders } from "../../services/provider-service";
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -28,12 +27,17 @@ export default function HomePage() {
     (state: RootState) => state.users
   );
   const { services } = useSelector((state: RootState) => state.services);
+  const { loading: providersLoading } = useSelector(
+    (state: RootState) => state.providers
+  );
   const dispatch = useAppDispatch();
 
   useEffect(() => {
     dispatch(getLoggedInUser());
     dispatch(getServices());
-  }, []);
+    // Fetch all providers once when the page loads
+    dispatch(fetchProviders());
+  }, [dispatch]);
 
   const handleSearch = (values: {
     serviceType: string;
@@ -56,7 +60,6 @@ export default function HomePage() {
       // Navigate to the target path if authenticated
       navigate(targetPath);
     }
-    // If auth is loading, do nothing yet, or show a loading indicator on the search button
   };
 
   // Create a proper icon map with correct typing
@@ -141,9 +144,11 @@ export default function HomePage() {
                       location: "",
                     })
                   }
-                  disabled={authIsLoading} // Disable button while auth is loading
+                  disabled={authIsLoading || providersLoading}
                 >
-                  {authIsLoading ? "Loading..." : `Explore ${service.category}`}
+                  {authIsLoading || providersLoading
+                    ? "Loading..."
+                    : `Explore ${service.category}`}
                 </Button>
               </div>
             );

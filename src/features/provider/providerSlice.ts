@@ -17,7 +17,7 @@ interface ProvidersState {
   searchLoading: boolean;
   error: string | null;
   nearbyError: string | null;
-  searchError: string | null;
+  searchError: string | unknown;
   lastSearchRequest: LocationSearchRequest | null;
 }
 
@@ -97,8 +97,6 @@ export const providersSlice = createSlice({
         state.searchError = null;
       })
       .addCase(searchProvidersNearbyByService.fulfilled, (state, action) => {
-
-        //TODO:: fix and set state (nearbyService)  
         state.searchLoading = false;
         state.searchResults = action.payload;
         state.searchError = null;
@@ -129,5 +127,13 @@ export const providersSlice = createSlice({
 });
 
 export const { clearProviders, clearNearbyProviders, clearSearchResults, clearErrors } = providersSlice.actions;
+
+// Selectors
+export const selectProviders = (state: RootState) => state.providers.providers;
+export const selectProvidersLoading = (state: RootState) => state.providers.loading;
 export const selectNearbyProviders = (state: RootState) => state.providers.nearbyProviders;
 export const selectNearbyProvidersLoading = (state: RootState) => state.providers.nearbyLoading;
+export const selectSearchResults = (state: RootState) => state.providers.searchResults;
+export const selectSearchLoading = (state: RootState) => state.providers.searchLoading;
+
+export default providersSlice.reducer;

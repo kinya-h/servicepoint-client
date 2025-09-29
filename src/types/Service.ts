@@ -23,7 +23,7 @@ export interface ServiceInfo {
   category: string;
   availability: string;
   price: number;
-  pricingType: string;
+  pricingType: 'hourly' | 'per_work';
   level: string;
   subject: string;
 }
