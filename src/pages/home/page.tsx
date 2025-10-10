@@ -9,13 +9,14 @@ import {
   Loader2,
   PlusCircle,
   Tag,
+  RefreshCw,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../store";
-import React, { useEffect } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useAppDispatch } from "../../hooks/hooks";
 import { getLoggedInUser } from "../../services/user-service";
 import { getServices } from "../../services/local-service";
@@ -29,10 +30,23 @@ export default function HomePage() {
   );
   const { services } = useSelector((state: RootState) => state.services);
 
+  // State to store random services
+  const [randomServices, setRandomServices] = useState<any[]>([]);
+
   useEffect(() => {
     dispatch(getLoggedInUser());
     dispatch(getServices());
   }, [dispatch]);
+
+  // Generate random services when services data changes
+  useEffect(() => {
+    if (services.length > 0) {
+      // Shuffle the services array and take first 6 (or less if fewer available)
+      const shuffled = [...services].sort(() => 0.5 - Math.random());
+      const selectedServices = shuffled.slice(0, Math.min(6, services.length));
+      setRandomServices(selectedServices);
+    }
+  }, [services]);
 
   const handleSearch = (values: {
     serviceType: string;
@@ -111,55 +125,94 @@ export default function HomePage() {
           tailored to your needs.
         </p>
       </section>
+
       <section className="py-12">
         <h2 className="text-3xl font-bold font-headline text-center mb-10">
           Popular Service Categories
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {services.map((service) => {
-            const IconComponent = getIconComponent(service.icon);
+          {randomServices.length > 0
+            ? randomServices.map((service) => {
+                const IconComponent = getIconComponent(service.icon);
 
-            return (
-              <div
-                key={service.category}
-                className="bg-card p-6 rounded-lg shadow-lg border text-center hover:shadow-xl transition-shadow"
-              >
-                <img
-                  src={`https://placehold.co/300x200.png`}
-                  alt={service.category}
-                  width={300}
-                  height={200}
-                  className="w-full h-40 object-cover rounded-md mb-4"
-                  data-ai-hint={service.category}
-                />
+                return (
+                  <div
+                    key={service.category}
+                    className="bg-card p-6 rounded-lg shadow-lg border text-center hover:shadow-xl transition-shadow"
+                  >
+                    <img
+                      src={`https://placehold.co/300x200.png`}
+                      alt={service.category}
+                      width={300}
+                      height={200}
+                      className="w-full h-40 object-cover rounded-md mb-4"
+                      data-ai-hint={service.category}
+                    />
 
-                {/* Use the dynamically mapped icon */}
-                <IconComponent className="h-12 w-12 text-primary mx-auto mb-4" />
+                    {/* Use the dynamically mapped icon */}
+                    <IconComponent className="h-12 w-12 text-primary mx-auto mb-4" />
 
-                <h3 className="text-xl font-semibold font-headline mb-2">
-                  {service.category}
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {service.description}
-                </p>
-                <Button
-                  variant="outline"
-                  className="border-primary text-primary hover:bg-primary/10"
-                  onClick={() =>
-                    handleSearch({
-                      serviceType: service.category,
-                      location: "",
-                    })
-                  }
-                  disabled={authIsLoading}
+                    <h3 className="text-xl font-semibold font-headline mb-2">
+                      {service.category}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {service.description}
+                    </p>
+                    <Button
+                      variant="outline"
+                      className="border-primary text-primary hover:bg-primary/10"
+                      onClick={() =>
+                        handleSearch({
+                          serviceType: service.category,
+                          location: "",
+                        })
+                      }
+                      disabled={authIsLoading}
+                    >
+                      {authIsLoading
+                        ? "Loading..."
+                        : `Explore ${service.category}`}
+                    </Button>
+                  </div>
+                );
+              })
+            : // Show loading skeleton while services are being fetched
+              Array.from({ length: 6 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="bg-card p-6 rounded-lg shadow-lg border text-center animate-pulse"
                 >
-                  {authIsLoading ? "Loading..." : `Explore ${service.category}`}
-                </Button>
-              </div>
-            );
-          })}
+                  <div className="w-full h-40 bg-muted rounded-md mb-4"></div>
+                  <div className="h-12 w-12 bg-muted rounded-full mx-auto mb-4"></div>
+                  <div className="h-6 bg-muted rounded mb-2 mx-auto w-3/4"></div>
+                  <div className="h-4 bg-muted rounded mb-4 mx-auto w-full"></div>
+                  <div className="h-10 bg-muted rounded w-3/4 mx-auto"></div>
+                </div>
+              ))}
         </div>
+
+        {/* Refresh button to get new random services */}
+        {randomServices.length > 0 && (
+          <div className="text-center mt-8">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const shuffled = [...services].sort(() => 0.5 - Math.random());
+                const selectedServices = shuffled.slice(
+                  0,
+                  Math.min(6, services.length)
+                );
+                setRandomServices(selectedServices);
+              }}
+              className="text-sm"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Reload Services
+            </Button>
+          </div>
+        )}
       </section>
+
       <section className="py-12 bg-primary/10 rounded-lg text-center">
         <h2 className="text-3xl font-bold font-headline mb-6">How It Works</h2>
         <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
