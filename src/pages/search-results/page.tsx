@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useAppDispatch } from "../../hooks/hooks";
-import { fetchProviders } from "../../services/provider-service";
-import type { ProviderWithUser } from "../../types/provider";
+import {
+  searchProvidersNearbyByService,
+  fetchProviders,
+} from "../../services/provider-service";
+import type {
+  ProviderWithUser,
+  LocationSearchResponse,
+} from "../../types/provider";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { RootState } from "../../store";
 import {
@@ -33,9 +39,14 @@ const SearchResultsContent: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
-  const { providers, loading: providersLoading } = useSelector(
-    (state: RootState) => state.providers
-  );
+  // Use the correct selectors from your slice
+  const {
+    searchResults,
+    searchLoading,
+    providers,
+    loading: providersLoading,
+  } = useSelector((state: RootState) => state.providers);
+
   const { loginResponse, loading: authIsLoading } = useSelector(
     (state: RootState) => state.users
   );
@@ -44,6 +55,7 @@ const SearchResultsContent: React.FC = () => {
     ProviderWithUser[]
   >([]);
   const [pageIsLoading, setPageIsLoading] = useState<boolean>(true);
+  const [searchExecuted, setSearchExecuted] = useState<boolean>(false);
 
   // Get search parameters from URL
   const serviceType = searchParams.get("serviceType") || "";
@@ -55,210 +67,183 @@ const SearchResultsContent: React.FC = () => {
   const providerNameFilter = searchParams.get("providerNameFilter") || "";
   const ratingSortOrder = searchParams.get("ratingSortOrder") || "";
 
+  // Parse location string to coordinates
   function parseLatLon(locationString: string) {
     const match = locationString.match(/Near Lat: ([-\d.]+), Lon: ([-\d.]+)/);
     if (match && match[1] && match[2]) {
-      return { lat: parseFloat(match[1]), long: parseFloat(match[2]) };
+      return {
+        lat: parseFloat(match[1]),
+        long: parseFloat(match[2]),
+      };
     }
     return null;
   }
 
-  function isNear(
-    providerLat: number | undefined,
-    providerLon: number | undefined,
-    searchLat: number | undefined,
-    searchLon: number | undefined,
-    thresholdDegrees: number = 0.5
-  ): boolean {
-    if (
-      providerLat === undefined ||
-      providerLon === undefined ||
-      searchLat === undefined ||
-      searchLon === undefined
-    ) {
-      return false;
-    }
-    const latDiff = Math.abs(providerLat - searchLat);
-    const lonDiff = Math.abs(providerLon - searchLon);
-    return latDiff < thresholdDegrees && lonDiff < thresholdDegrees;
-  }
-
-  // Handle authentication and initial setup
+  // Handle search execution
   useEffect(() => {
-    if (authIsLoading) return;
+    const executeSearch = async () => {
+      if (authIsLoading || !loginResponse || !serviceType) {
+        setPageIsLoading(false);
+        return;
+      }
 
-    if (!loginResponse) {
-      const currentPath = window.location.pathname + window.location.search;
-      navigate(`/auth/login?redirect=${encodeURIComponent(currentPath)}`);
-      return;
-    }
+      setPageIsLoading(true);
+      setSearchExecuted(true);
 
-    // Fetch providers if not already loaded
-    if (providers.length === 0 && !providersLoading) {
-      dispatch(fetchProviders());
-    }
+      try {
+        const parsedCoords = parseLatLon(location);
+
+        if (parsedCoords) {
+          // Use nearby search with coordinates
+          const searchRequest = {
+            category: serviceType,
+            latitude: parsedCoords.lat,
+            longitude: parsedCoords.long,
+            radius: 25,
+            limit: 50,
+            offset: 0,
+            level: level || undefined,
+            // subject: subject || undefined,
+          };
+
+          console.log(
+            "Executing nearby search with coordinates:",
+            searchRequest
+          );
+          await dispatch(searchProvidersNearbyByService(searchRequest));
+        } else {
+          // Use general search (no coordinates)
+          console.log("Executing general search for category:", serviceType);
+          await dispatch(fetchProviders());
+        }
+      } catch (error) {
+        console.error("Search error:", error);
+        // Fallback to general search on error
+        await dispatch(fetchProviders());
+      } finally {
+        setPageIsLoading(false);
+      }
+    };
+
+    executeSearch();
   }, [
+    serviceType,
+    location,
+    level,
+    subject,
     authIsLoading,
     loginResponse,
-    navigate,
     dispatch,
-    providers.length,
-    providersLoading,
   ]);
 
-  // Filter providers based on search parameters
+  // Get providers from the correct source and apply filters
   useEffect(() => {
-    if (authIsLoading || !loginResponse) return;
+    if (!searchExecuted) return;
 
-    if (providersLoading) {
-      setPageIsLoading(true);
-      return;
+    let results: ProviderWithUser[] = [];
+
+    // Determine which data source to use
+    const parsedCoords = parseLatLon(location);
+    if (parsedCoords && searchResults) {
+      // Use search results from nearby search
+      results = searchResults.providers || [];
+      console.log("Using searchResults providers:", results.length);
+    } else {
+      // Use general providers
+      results = [...providers];
+      console.log("Using general providers:", results.length);
     }
 
-    setPageIsLoading(true);
+    // Apply service type filter for general search
+    if (!parsedCoords && serviceType) {
+      results = results.filter((provider) =>
+        provider.service?.category
+          .toLowerCase()
+          .includes(serviceType.toLowerCase())
+      );
+      console.log("After service type filter:", results.length);
+    }
 
-    // Use setTimeout to simulate async filtering and prevent blocking
-    setTimeout(() => {
-      let results = [...providers];
+    // Apply additional filters
+    if (tutorNameFilter) {
+      results = results.filter((provider) =>
+        provider.user.username
+          ?.toLowerCase()
+          .includes(tutorNameFilter.toLowerCase())
+      );
+      console.log("After tutor name filter:", results.length);
+    }
 
-      console.log("Total providers:", results.length);
+    if (providerNameFilter) {
+      results = results.filter((provider) =>
+        provider.user.username
+          ?.toLowerCase()
+          .includes(providerNameFilter.toLowerCase())
+      );
+      console.log("After provider name filter:", results.length);
+    }
 
-      // Filter by service category
-      if (serviceType) {
-        results = results.filter((provider) =>
-          provider.service?.category
-            .toLowerCase()
-            .includes(serviceType.toLowerCase())
-        );
-        console.log(`After category filter (${serviceType}):`, results.length);
-      }
+    if (homeRepairSubCategory && homeRepairSubCategory !== "all") {
+      results = results.filter((provider) =>
+        provider.service?.name
+          ?.toLowerCase()
+          .includes(homeRepairSubCategory.toLowerCase())
+      );
+      console.log("After sub-category filter:", results.length);
+    }
 
-      // Filter by location
-      const parsedSearchCoords = parseLatLon(location);
+    // Filter by level (for Tutoring)
+    if (serviceType === "Tutoring" && level) {
+      results = results.filter(
+        (provider) =>
+          provider.service?.level?.toLowerCase() === level.toLowerCase()
+      );
+      console.log("After level filter:", results.length);
+    }
 
-      if (parsedSearchCoords) {
-        // Location-based filtering using coordinates
-        results = results.filter(
-          (provider) =>
-            provider.user.latitude !== undefined &&
-            provider.user.longitude !== undefined &&
-            isNear(
-              provider.user.latitude as number,
-              provider.user.longitude,
-              parsedSearchCoords.lat,
-              parsedSearchCoords.long
-            )
-        );
-        console.log("After coordinate filter:", results.length);
-      } else if (
-        location &&
-        serviceType === "Tutoring" &&
-        location.toLowerCase() === "online"
-      ) {
-        // Special case for online tutoring
-        results = results.filter(
-          (provider) => provider.user.location?.toLowerCase() === "online"
-        );
-        console.log("After online filter:", results.length);
-      } else if (location) {
-        // Text-based location filtering
-        results = results.filter((provider) =>
-          provider.user.location?.toLowerCase().includes(location.toLowerCase())
-        );
-        console.log("After text location filter:", results.length);
-      }
+    // Filter by subject
+    if (subject) {
+      results = results.filter((provider) =>
+        provider.service?.subject?.toLowerCase().includes(subject.toLowerCase())
+      );
+      console.log("After subject filter:", results.length);
+    }
 
-      // Filter by level (for Tutoring)
-      if (serviceType === "Tutoring" && level) {
-        results = results.filter(
-          (provider) =>
-            provider.service?.level?.toLowerCase() === level.toLowerCase()
-        );
-        console.log(`After level filter (${level}):`, results.length);
-      }
+    // Sort by rating if specified
+    if (ratingSortOrder && ratingSortOrder !== "none") {
+      results.sort((a, b) => {
+        const ratingA = a.user.rating ?? 0;
+        const ratingB = b.user.rating ?? 0;
 
-      // Filter by subject
-      if (subject) {
-        results = results.filter((provider) =>
-          provider.service?.subject
-            ?.toLowerCase()
-            .includes(subject.toLowerCase())
-        );
-        console.log(`After subject filter (${subject}):`, results.length);
-      }
+        if (ratingSortOrder === "highToLow" || ratingSortOrder === "highest") {
+          return ratingB - ratingA;
+        } else if (
+          ratingSortOrder === "lowToHigh" ||
+          ratingSortOrder === "lowest"
+        ) {
+          return ratingA - ratingB;
+        }
+        return 0;
+      });
+      console.log("After rating sort");
+    }
 
-      // Filter by tutor name
-      if (tutorNameFilter) {
-        results = results.filter((provider) =>
-          provider.user.username
-            ?.toLowerCase()
-            .includes(tutorNameFilter.toLowerCase())
-        );
-        console.log(
-          `After tutor name filter (${tutorNameFilter}):`,
-          results.length
-        );
-      }
-
-      // Filter by home repair sub-category
-      if (homeRepairSubCategory && homeRepairSubCategory !== "all") {
-        results = results.filter((provider) =>
-          provider.service?.name
-            ?.toLowerCase()
-            .includes(homeRepairSubCategory.toLowerCase())
-        );
-        console.log(
-          `After sub-category filter (${homeRepairSubCategory}):`,
-          results.length
-        );
-      }
-
-      // Filter by provider name
-      if (providerNameFilter) {
-        results = results.filter((provider) =>
-          provider.user.username
-            ?.toLowerCase()
-            .includes(providerNameFilter.toLowerCase())
-        );
-        console.log(
-          `After provider name filter (${providerNameFilter}):`,
-          results.length
-        );
-      }
-
-      // Sort by rating if specified
-      if (ratingSortOrder && ratingSortOrder !== "none") {
-        results.sort((a, b) => {
-          const ratingA = a.user.rating ?? 0;
-          const ratingB = b.user.rating ?? 0;
-
-          if (ratingSortOrder === "highest") {
-            return ratingB - ratingA;
-          } else if (ratingSortOrder === "lowest") {
-            return ratingA - ratingB;
-          }
-          return 0;
-        });
-        console.log(`After rating sort (${ratingSortOrder})`);
-      }
-
-      console.log("Final filtered results:", results.length);
-      setFilteredProviders(results);
-      setPageIsLoading(false);
-    }, 300);
+    console.log("Final filtered results:", results.length);
+    setFilteredProviders(results);
   }, [
+    searchResults,
     providers,
     providersLoading,
+    searchLoading,
     serviceType,
     location,
     level,
     subject,
     tutorNameFilter,
-    homeRepairSubCategory,
     providerNameFilter,
+    homeRepairSubCategory,
     ratingSortOrder,
-    authIsLoading,
-    loginResponse,
+    searchExecuted,
   ]);
 
   const handleMainSearch = (values: SearchFormValues) => {
@@ -284,13 +269,11 @@ const SearchResultsContent: React.FC = () => {
     navigate(`/search-results?${query.toString()}`);
   };
 
-  const hasActiveSearch =
-    serviceType ||
-    level ||
-    subject ||
-    location ||
-    tutorNameFilter ||
-    providerNameFilter;
+  const hasActiveSearch = serviceType || level || subject || location;
+
+  // Determine loading state
+  const isLoading =
+    pageIsLoading || searchLoading || (providersLoading && !searchResults);
 
   if (authIsLoading || (!loginResponse && !authIsLoading)) {
     return (
@@ -308,14 +291,13 @@ const SearchResultsContent: React.FC = () => {
     );
   }
 
-  const PageIcon =
-    location && parseLatLon(location)
-      ? MapPinIcon
-      : serviceType === "Home Repairs"
-      ? UserSearch
-      : serviceType === "Tutoring"
-      ? BookOpen
-      : UserSearch;
+  const PageIcon = location.includes("Near Lat:")
+    ? MapPinIcon
+    : serviceType === "Home Repairs"
+    ? UserSearch
+    : serviceType === "Tutoring"
+    ? BookOpen
+    : UserSearch;
 
   return (
     <div className="space-y-8">
@@ -326,6 +308,7 @@ const SearchResultsContent: React.FC = () => {
       >
         <ArrowLeft className="mr-2 h-4 w-4" /> Back
       </Button>
+
       <section className="bg-card p-2 md:p-4 rounded-lg shadow-lg border">
         <h1 className="text-xl md:text-2xl font-bold font-headline mb-4 text-primary px-2">
           {serviceType === "Home Repairs"
@@ -349,7 +332,8 @@ const SearchResultsContent: React.FC = () => {
           isContextualFilterMode={!!serviceType}
         />
       </section>
-      {pageIsLoading ? (
+
+      {isLoading ? (
         <div className="flex justify-center items-center py-10">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
         </div>
@@ -357,17 +341,24 @@ const SearchResultsContent: React.FC = () => {
         <section>
           <h2 className="text-2xl md:text-3xl font-bold font-headline mb-6 text-center flex items-center justify-center">
             <PageIcon className="mr-3 h-8 w-8 text-primary" />
-            {hasActiveSearch
+            {searchExecuted
               ? filteredProviders.length > 0
-                ? "Available Providers"
+                ? `Found ${filteredProviders.length} Provider${
+                    filteredProviders.length !== 1 ? "s" : ""
+                  }`
                 : "No Providers Found"
-              : "Please enter search criteria"}
+              : "Enter search criteria to find providers"}
           </h2>
-          {location && parseLatLon(location) && (
+
+          {location.includes("Near Lat:") && searchResults && (
             <p className="text-center text-sm text-muted-foreground -mt-4 mb-6">
-              Showing providers near the specified coordinates.
+              Showing providers within {searchResults.searchRadius} miles of
+              your location
+              {searchResults.total !== undefined &&
+                ` • ${searchResults.total} total found`}
             </p>
           )}
+
           {filteredProviders.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredProviders.map((provider) => (
@@ -375,13 +366,23 @@ const SearchResultsContent: React.FC = () => {
               ))}
             </div>
           ) : (
-            hasActiveSearch && (
+            searchExecuted && (
               <div className="text-center py-10 bg-card rounded-lg shadow border">
                 <AlertTriangle className="mx-auto h-12 w-12 text-accent mb-4" />
-                <p className="text-lg text-muted-foreground">
+                <p className="text-lg text-muted-foreground mb-4">
                   We couldn't find any providers matching your current criteria.
-                  Try a broader search or adjusting filters.
                 </p>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Try these suggestions:
+                  </p>
+                  <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+                    <li>Broaden your search area</li>
+                    <li>Try different service categories</li>
+                    <li>Remove some filters</li>
+                    <li>Check if providers are available in your area</li>
+                  </ul>
+                </div>
               </div>
             )
           )}

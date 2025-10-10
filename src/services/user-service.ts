@@ -32,12 +32,24 @@ export const loginUser =
 
 export const signUpUser = createAsyncThunk<
   User,
-  { username: string; email: string; password: string, role: string }
->("auth/register", async ({ username, email, password, role }) => {
+  { username: string; email: string; password: string, location: string, latitude: number, longitude: number, role: string }
+>("auth/register", async ({ username, email, password, location, latitude, longitude, role }) => {
+  console.log("Payload== ", {
+    username,
+    email,
+    password,
+    location,
+    latitude,
+    longitude,
+    role
+  })
   const response = await axios.post(`${API_URL}/api/auth/register`, {
     username,
     email,
     password,
+    location,
+    latitude,
+    longitude,
     role
   });
 

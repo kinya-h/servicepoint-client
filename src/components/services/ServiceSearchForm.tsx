@@ -36,6 +36,7 @@ import {
   serviceCategories,
   homeRepairCategories,
 } from "../../lib/mockData";
+import { useToast } from "../../hooks/use-toast";
 
 const searchSchema = z.object({
   serviceType: z.string().min(1, "Service type is required."),
@@ -46,7 +47,7 @@ const searchSchema = z.object({
   tutorNameFilter: z.string().optional(),
   // Home Repairs specific
   homeRepairSubCategory: z.string().optional(),
-  providerNameFilter: z.string().optional(), // Can be used by Home Repairs
+  providerNameFilter: z.string().optional(),
   // General
   ratingSortOrder: z.string().optional(),
 });
@@ -66,12 +67,14 @@ export default function ServiceSearchForm({
   isContextualFilterMode = false,
 }: ServiceSearchFormProps) {
   const [isLocating, setIsLocating] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
   const [currentDisplayServiceType, setCurrentDisplayServiceType] = useState<
     string | undefined
   >(initialValues?.serviceType);
   const [subjectsForLevel, setSubjectsForLevel] = useState<
     { name: string; icon: React.ElementType }[]
   >([]);
+  const { toast } = useToast();
 
   const form = useForm<SearchFormValues>({
     resolver: zodResolver(searchSchema),
@@ -107,7 +110,6 @@ export default function ServiceSearchForm({
       form.resetField("homeRepairSubCategory", { defaultValue: "all" });
       form.resetField("providerNameFilter", { defaultValue: "" });
     }
-    // Shared field reset if context changes
     if (initialValues?.serviceType !== effectiveServiceType) {
       form.resetField("ratingSortOrder", { defaultValue: "none" });
     }
@@ -151,8 +153,32 @@ export default function ServiceSearchForm({
         ? initialValues.serviceType
         : initialValues?.serviceType || "";
     setCurrentDisplayServiceType(effectiveServiceTypeOnMount);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialValues, isContextualFilterMode, form.reset]);
+
+  // Geocode location using OpenStreetMap Nominatim
+  const geocodeLocation = async (
+    query: string
+  ): Promise<{ lat: number; long: number; displayName: string }> => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          query
+        )}&limit=1`
+      );
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        return {
+          lat: parseFloat(data[0].lat),
+          long: parseFloat(data[0].lon),
+          displayName: data[0].display_name,
+        };
+      }
+      throw new Error("Location not found");
+    } catch (error) {
+      throw new Error("Failed to geocode location");
+    }
+  };
 
   const handleGetCurrentLocation = () => {
     setIsLocating(true);
@@ -162,21 +188,75 @@ export default function ServiceSearchForm({
           form.setValue(
             "location",
             `Near Lat: ${position.coords.latitude.toFixed(
-              2
-            )}, Lon: ${position.coords.longitude.toFixed(2)}`
+              4
+            )}, Lon: ${position.coords.longitude.toFixed(4)}`
           );
           setIsLocating(false);
         },
         (error) => {
           console.error("Error getting location:", error);
-          alert("Could not fetch your location. Please enter it manually.");
+          toast({
+            title: "Location Error",
+            description:
+              "Could not fetch your location. Please enter it manually.",
+            variant: "destructive",
+          });
           setIsLocating(false);
         }
       );
     } else {
-      alert("Geolocation is not supported by your browser.");
+      toast({
+        title: "Geolocation Not Supported",
+        description: "Your browser doesn't support geolocation.",
+        variant: "destructive",
+      });
       setIsLocating(false);
     }
+  };
+
+  const handleFormSubmit = async (values: SearchFormValues) => {
+    let finalLocation = values.location;
+
+    // If location is provided and not coordinates/online, geocode it
+    if (
+      finalLocation &&
+      !finalLocation.includes("Near Lat:") &&
+      finalLocation.toLowerCase() !== "online" &&
+      finalLocation.trim() !== ""
+    ) {
+      try {
+        setIsGeocoding(true);
+        const locationData = await geocodeLocation(finalLocation);
+        // Update the form with coordinates
+        finalLocation = `Near Lat: ${locationData.lat.toFixed(
+          4
+        )}, Lon: ${locationData.long.toFixed(4)}`;
+
+        toast({
+          title: "Location Found",
+          description: `Searching near ${
+            locationData.displayName.split(",")[0]
+          }`,
+        });
+      } catch (error) {
+        console.error("Geocoding failed:", error);
+        toast({
+          title: "Location Error",
+          description:
+            "Could not find the specified location. Please try a different location name.",
+          variant: "destructive",
+        });
+        return; // Don't proceed if geocoding fails
+      } finally {
+        setIsGeocoding(false);
+      }
+    }
+
+    // Raise the event with processed values
+    onSearch({
+      ...values,
+      location: finalLocation,
+    });
   };
 
   const showMainServiceTypeDropdown =
@@ -193,7 +273,7 @@ export default function ServiceSearchForm({
       form.setValue("tutorNameFilter", "");
       form.setValue("ratingSortOrder", "none");
     }
-    form.handleSubmit(onSearch)();
+    form.handleSubmit(handleFormSubmit)();
   };
 
   const numCols =
@@ -206,7 +286,7 @@ export default function ServiceSearchForm({
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit(onSearch)}
+        onSubmit={form.handleSubmit(handleFormSubmit)}
         className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${numCols} gap-4 items-end p-4 md:p-6 bg-card rounded-lg shadow-lg border`}
       >
         {showMainServiceTypeDropdown && (
@@ -387,7 +467,7 @@ export default function ServiceSearchForm({
               />
               <FormField
                 control={form.control}
-                name="providerNameFilter" // Re-using for Home Repairs
+                name="providerNameFilter"
                 render={({ field }) => (
                   <FormItem className="lg:col-span-1">
                     <FormLabel>Provider Name</FormLabel>
@@ -455,7 +535,7 @@ export default function ServiceSearchForm({
               <div className="flex gap-2">
                 <FormControl>
                   <Input
-                    placeholder="City or zip, or 'Online'"
+                    placeholder="City, address, or 'Online'"
                     {...field}
                     value={field.value || ""}
                   />
@@ -491,9 +571,19 @@ export default function ServiceSearchForm({
         >
           <Button
             type="submit"
+            disabled={isGeocoding}
             className="flex-grow bg-accent hover:bg-accent/90 text-accent-foreground h-10 mt-auto"
           >
-            <Search className="mr-2 h-5 w-5" /> Search
+            {isGeocoding ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Finding Location...
+              </>
+            ) : (
+              <>
+                <Search className="mr-2 h-5 w-5" /> Search
+              </>
+            )}
           </Button>
           {isContextualFilterMode &&
             (currentDisplayServiceType === "Home Repairs" ||

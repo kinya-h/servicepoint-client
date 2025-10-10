@@ -309,10 +309,10 @@ export default function ManageServicesPage() {
                           <SelectItem value="House Services">
                             House Services
                           </SelectItem>
-                          <SelectItem value="Online Tutoring">
+                          <SelectItem value="Tutoring">
                             Online Tutoring
                           </SelectItem>
-                          <SelectItem value="Repairs">Repairs</SelectItem>
+                          <SelectItem value="Home Repairs">Repairs</SelectItem>
                           <SelectItem value="Consulting">Consulting</SelectItem>
                         </SelectContent>
                       </Select>

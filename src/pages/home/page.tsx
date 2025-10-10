@@ -19,24 +19,19 @@ import React, { useEffect } from "react";
 import { useAppDispatch } from "../../hooks/hooks";
 import { getLoggedInUser } from "../../services/user-service";
 import { getServices } from "../../services/local-service";
-import { fetchProviders } from "../../services/provider-service";
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+
   const { loginResponse, loading: authIsLoading } = useSelector(
     (state: RootState) => state.users
   );
   const { services } = useSelector((state: RootState) => state.services);
-  const { loading: providersLoading } = useSelector(
-    (state: RootState) => state.providers
-  );
-  const dispatch = useAppDispatch();
 
   useEffect(() => {
     dispatch(getLoggedInUser());
     dispatch(getServices());
-    // Fetch all providers once when the page loads
-    dispatch(fetchProviders());
   }, [dispatch]);
 
   const handleSearch = (values: {
@@ -44,12 +39,24 @@ export default function HomePage() {
     location?: string;
     level?: string;
     subject?: string;
+    tutorNameFilter?: string;
+    homeRepairSubCategory?: string;
+    providerNameFilter?: string;
+    ratingSortOrder?: string;
   }) => {
     const queryParams = new URLSearchParams();
     if (values.serviceType) queryParams.set("serviceType", values.serviceType);
     if (values.location) queryParams.set("location", values.location);
     if (values.level) queryParams.set("level", values.level);
     if (values.subject) queryParams.set("subject", values.subject);
+    if (values.tutorNameFilter)
+      queryParams.set("tutorNameFilter", values.tutorNameFilter);
+    if (values.homeRepairSubCategory)
+      queryParams.set("homeRepairSubCategory", values.homeRepairSubCategory);
+    if (values.providerNameFilter)
+      queryParams.set("providerNameFilter", values.providerNameFilter);
+    if (values.ratingSortOrder)
+      queryParams.set("ratingSortOrder", values.ratingSortOrder);
 
     const targetPath = `/search-results?${queryParams.toString()}`;
 
@@ -144,11 +151,9 @@ export default function HomePage() {
                       location: "",
                     })
                   }
-                  disabled={authIsLoading || providersLoading}
+                  disabled={authIsLoading}
                 >
-                  {authIsLoading || providersLoading
-                    ? "Loading..."
-                    : `Explore ${service.category}`}
+                  {authIsLoading ? "Loading..." : `Explore ${service.category}`}
                 </Button>
               </div>
             );
