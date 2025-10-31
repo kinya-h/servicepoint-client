@@ -7,16 +7,49 @@ import { API_URL } from "../constants";
 import { axiosInstance } from "../lib/axios-instance";
 
 
+/**
+ * Request OTP for registration
+ */
+export const requestRegistrationOtp = createAsyncThunk(
+  'auth/requestRegistrationOtp',
+  async ({ email }: { email: string }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(`${API_URL}/api/auth/register/request-otp`, {
+        email
+      });
+      return response.data;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
 
 
+/**
+ * Request OTP for login
+ */
+export const requestLoginOtp = createAsyncThunk(
+  'auth/requestLoginOtp',
+  async ({ username }: { username: string }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(`${API_URL}/api/auth/login/request-otp`, {
+        email: username // Backend expects "email" field but we send username
+      });
+      return response.data;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
 
 export const loginUser =
-  createAsyncThunk<LoginResponse, { username: string, password: string }>
-    ('users/login', async ({ username, password }) => {
+  createAsyncThunk<LoginResponse, { username: string, password: string, otpCode: string }>
+    ('users/login', async ({ username, password, otpCode }) => {
 
       const response = await axios.post(`${API_URL}/api/auth/login`, {
         username,
-        password
+        password,
+        otpCode
       })
       console.log(response)
 
@@ -30,32 +63,86 @@ export const loginUser =
 
 
 
+// export const signUpUser = createAsyncThunk<
+//   User,
+//   { username: string; email: string; password: string, location: string, latitude: number, longitude: number, role: string }
+// >("auth/register", async ({ username, email, password, location, latitude, longitude, role }) => {
+//   console.log("Payload== ", {
+//     username,
+//     email,
+//     password,
+//     location,
+//     latitude,
+//     longitude,
+//     role
+//   })
+//   const response = await axios.post(`${API_URL}/api/auth/register`, {
+//     username,
+//     email,
+//     password,
+//     location,
+//     latitude,
+//     longitude,
+//     role
+//   });
+
+//   console.log("RESPONSE DATA = ", response.data);
+//   return response.data as User;
+// });
+
+
 export const signUpUser = createAsyncThunk<
   User,
-  { username: string; email: string; password: string, location: string, latitude: number, longitude: number, role: string }
->("auth/register", async ({ username, email, password, location, latitude, longitude, role }) => {
-  console.log("Payload== ", {
-    username,
-    email,
-    password,
-    location,
-    latitude,
-    longitude,
-    role
-  })
-  const response = await axios.post(`${API_URL}/api/auth/register`, {
-    username,
-    email,
-    password,
-    location,
-    latitude,
-    longitude,
-    role
-  });
+  {
+    username: string;
+    email: string;
+    password: string;
+    location: string;
+    latitude: number;
+    longitude: number;
+    role: string;
+    otpCode: string;
+  }
+>("auth/register", async ({
+  username,
+  email,
+  password,
+  location,
+  latitude,
+  longitude,
+  role,
+  otpCode
+}, { rejectWithValue }) => {
+  try {
+    console.log("Payload== ", {
+      username,
+      email,
+      password,
+      location,
+      latitude,
+      longitude,
+      role,
+      otpCode
+    });
 
-  console.log("RESPONSE DATA = ", response.data);
-  return response.data as User;
+    const response = await axios.post(`${API_URL}/api/auth/register`, {
+      username,
+      email,
+      password,
+      location,
+      latitude,
+      longitude,
+      role,
+      otpCode
+    });
+
+    console.log("RESPONSE DATA = ", response.data);
+    return response.data as User;
+  } catch (err: any) {
+    return rejectWithValue(err.response?.data?.message || err.message);
+  }
 });
+
 
 
 export const updateUserProfile = createAsyncThunk(

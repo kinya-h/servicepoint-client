@@ -13,11 +13,12 @@ import {
 import { Input } from "../../components/ui/input";
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
 import { useToast } from "../../hooks/use-toast";
-import { UserPlus, MapPin, Loader2 } from "lucide-react";
+import { UserPlus, MapPin, Loader2, Mail, Shield } from "lucide-react";
 import { useAppDispatch } from "../../hooks/hooks";
-import { signUpUser } from "../../services/user-service";
+import { signUpUser, requestRegistrationOtp } from "../../services/user-service";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Alert, AlertDescription } from "../../components/ui/alert";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -31,6 +32,7 @@ const formSchema = z.object({
   location: z.string().optional(),
   latitude: z.number().min(-90).max(90).nullable(),
   longitude: z.number().min(-180).max(180).nullable(),
+  otpCode: z.string().regex(/^\d{6}$/, { message: "OTP must be 6 digits." }).optional(),
 });
 
 export default function RegisterForm() {
@@ -38,6 +40,9 @@ export default function RegisterForm() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [otpRequested, setOtpRequested] = useState(false);
+  const [isRequestingOtp, setIsRequestingOtp] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -49,8 +54,17 @@ export default function RegisterForm() {
       location: "",
       latitude: null,
       longitude: null,
+      otpCode: "",
     },
   });
+
+  // Countdown timer for OTP
+  useEffect(() => {
+    if (otpTimer > 0) {
+      const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [otpTimer]);
 
   const getCurrentLocation = () => {
     setIsGettingLocation(true);
@@ -72,7 +86,6 @@ export default function RegisterForm() {
         form.setValue("latitude", latitude);
         form.setValue("longitude", longitude);
 
-        // Reverse geocode to get location name using OpenStreetMap Nominatim
         try {
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
@@ -137,6 +150,55 @@ export default function RegisterForm() {
     );
   };
 
+  const handleRequestOtp = async () => {
+    // Validate email before requesting OTP
+    const email = form.getValues("email");
+    
+    if (!email || !email.includes("@")) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsRequestingOtp(true);
+
+    try {
+      const response = await dispatch(requestRegistrationOtp({ email })).unwrap();
+      
+      setOtpRequested(true);
+      setOtpTimer(600); // 10 minutes countdown
+      
+      toast({
+        title: "OTP Sent Successfully",
+        description: `A 6-digit code has been sent to ${email}. Check your inbox.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "OTP Request Failed",
+        description: error || "Failed to send OTP. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRequestingOtp(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (otpTimer > 0) {
+      toast({
+        title: "Please Wait",
+        description: `You can resend OTP in ${otpTimer} seconds.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    await handleRequestOtp();
+  };
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     // Validate that location data is present
     if (!values.latitude || !values.longitude) {
@@ -148,27 +210,52 @@ export default function RegisterForm() {
       return;
     }
 
-    const response = await dispatch(
-      signUpUser({
-        username: values.name,
-        email: values.email,
-        password: values.password,
-        role: values.role,
-        location: values.location || "",
-        latitude: values.latitude,
-        longitude: values.longitude,
-      })
-    );
-
-    if (response.meta.requestStatus === "fulfilled") {
+    // Validate OTP is present
+    if (!values.otpCode || values.otpCode.length !== 6) {
       toast({
-        title: "Registration Successful",
-        description: `Welcome, ${values.name}! Your account has been created.`,
+        title: "OTP Required",
+        description: "Please enter the 6-digit OTP code sent to your email.",
+        variant: "destructive",
       });
+      return;
+    }
 
-      navigate("/auth/login");
+    try {
+      const response = await dispatch(
+        signUpUser({
+          username: values.name,
+          email: values.email,
+          password: values.password,
+          role: values.role,
+          location: values.location || "",
+          latitude: values.latitude,
+          longitude: values.longitude,
+          otpCode: values.otpCode,
+        })
+      );
+
+      if (response.meta.requestStatus === "fulfilled") {
+        toast({
+          title: "Registration Successful",
+          description: `Welcome, ${values.name}! Your account has been created.`,
+        });
+
+        navigate("/auth/login");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Registration Failed",
+        description: error || "An error occurred during registration.",
+        variant: "destructive",
+      });
     }
   }
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   return (
     <Form {...form}>
@@ -199,6 +286,7 @@ export default function RegisterForm() {
                   {...field}
                   autoComplete="email"
                   autoCorrect="off"
+                  disabled={otpRequested}
                 />
               </FormControl>
               <FormMessage />
@@ -349,11 +437,84 @@ export default function RegisterForm() {
           </div>
         </div>
 
+        {/* OTP Section */}
+        <div className="space-y-4 border rounded-lg p-4 bg-primary/5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-sm flex items-center">
+                <Shield className="mr-2 h-4 w-4" />
+                Email Verification
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                We'll send a 6-digit code to your email
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={otpRequested ? handleResendOtp : handleRequestOtp}
+              disabled={isRequestingOtp || (otpRequested && otpTimer > 540)}
+              variant={otpRequested ? "outline" : "default"}
+              size="sm"
+            >
+              {isRequestingOtp ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : otpRequested ? (
+                <>
+                  <Mail className="mr-2 h-4 w-4" />
+                  Resend OTP
+                </>
+              ) : (
+                <>
+                  <Mail className="mr-2 h-4 w-4" />
+                  Send OTP
+                </>
+              )}
+            </Button>
+          </div>
+
+          {otpRequested && (
+            <Alert>
+              <AlertDescription>
+                OTP sent to your email. {otpTimer > 0 && `Expires in ${formatTime(otpTimer)}`}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <FormField
+            control={form.control}
+            name="otpCode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Enter OTP Code</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="123456"
+                    {...field}
+                    maxLength={6}
+                    disabled={!otpRequested}
+                    className="text-center text-lg tracking-widest"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
         <Button
           type="submit"
           className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
+          disabled={!otpRequested || form.formState.isSubmitting}
         >
-          <UserPlus className="mr-2 h-4 w-4" /> Register
+          {form.formState.isSubmitting ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <UserPlus className="mr-2 h-4 w-4" />
+          )}
+          Register
         </Button>
       </form>
     </Form>
