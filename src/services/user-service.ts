@@ -43,11 +43,11 @@ export const requestLoginOtp = createAsyncThunk(
 );
 
 export const loginUser =
-  createAsyncThunk<LoginResponse, { username: string, password: string, otpCode: string }>
-    ('users/login', async ({ username, password, otpCode }) => {
+  createAsyncThunk<LoginResponse, { email: string, password: string, otpCode: string }>
+    ('users/login', async ({ email, password, otpCode }) => {
 
       const response = await axios.post(`${API_URL}/api/auth/login`, {
-        username,
+        email,
         password,
         otpCode
       })
@@ -206,3 +206,44 @@ export const deleteAccount = createAsyncThunk<
     return rejectWithValue(err.response?.data?.message || err.message);
   }
 });
+
+
+/**
+ * Request OTP for provider registration
+ */
+export const requestProviderRegistrationOtp = createAsyncThunk(
+  'auth/requestProviderRegistrationOtp',
+  async ({ email }: { email: string }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(`${API_URL}/api/provider-registration/request-otp`, {
+        email
+      });
+      return response.data;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);
+
+/**
+ * Submit provider registration
+ */
+export const submitProviderRegistration = createAsyncThunk(
+  'auth/submitProviderRegistration',
+  async (formData: FormData, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(
+        `${API_URL}/api/provider-registration/submit`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      return response.data;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.message || err.message);
+    }
+  }
+);

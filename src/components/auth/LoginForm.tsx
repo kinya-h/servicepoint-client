@@ -24,9 +24,7 @@ import { useState, useEffect } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 
 const formSchema = z.object({
-  username: z
-    .string()
-    .min(3, { message: "Username must be at least 3 characters." }),
+  email: z.string().email({ message: "Please enter a valid email address." }),
   password: z
     .string()
     .min(6, { message: "Password must be at least 6 characters." }),
@@ -52,7 +50,7 @@ export default function LoginForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      username: "",
+      email: "",
       password: "",
       role: "customer",
       otpCode: "",
@@ -68,14 +66,14 @@ export default function LoginForm() {
   }, [otpTimer]);
 
   const handleRequestOtp = async () => {
-    // Validate username and password before requesting OTP
-    const username = form.getValues("username");
+    // Validate email and password before requesting OTP
+    const email = form.getValues("email");
     const password = form.getValues("password");
 
-    if (!username || username.length < 3) {
+    if (!email || !email.includes("@")) {
       toast({
-        title: "Username Required",
-        description: "Please enter your username first.",
+        title: "Email Required",
+        description: "Please enter your email address first.",
         variant: "destructive",
       });
       return;
@@ -93,19 +91,22 @@ export default function LoginForm() {
     setIsRequestingOtp(true);
 
     try {
-      const response = await dispatch(requestLoginOtp({ username })).unwrap();
+      const response = await dispatch(
+        requestLoginOtp({ username: email })
+      ).unwrap();
 
       setOtpRequested(true);
       setOtpTimer(600); // 10 minutes countdown
 
       toast({
         title: "OTP Sent Successfully",
-        description: "A 6-digit code has been sent to your registered email.",
+        description: `A 6-digit code has been sent to ${email}.`,
       });
     } catch (error: any) {
       toast({
         title: "OTP Request Failed",
-        description: error || "Failed to send OTP. Please check your username.",
+        description:
+          error || "Failed to send OTP. Please check your email address.",
         variant: "destructive",
       });
     } finally {
@@ -142,7 +143,7 @@ export default function LoginForm() {
     try {
       const response = await dispatch(
         loginUser({
-          username: values.username,
+          email: values.email,
           password: values.password,
           otpCode: values.otpCode,
         })
@@ -178,12 +179,18 @@ export default function LoginForm() {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
-          name="username"
+          name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Username</FormLabel>
+              <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input placeholder="admin" {...field} disabled={otpRequested} />
+                <Input
+                  placeholder="you@example.com"
+                  {...field}
+                  // disabled={otpRequested}
+                  type="email"
+                  autoComplete="email"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -201,7 +208,8 @@ export default function LoginForm() {
                   type="password"
                   placeholder="••••••••"
                   {...field}
-                  disabled={otpRequested}
+                  // disabled={otpRequested}
+                  autoComplete="current-password"
                 />
               </FormControl>
               <FormMessage />
@@ -209,7 +217,7 @@ export default function LoginForm() {
           )}
         />
 
-        <FormField
+        {/* <FormField
           control={form.control}
           name="role"
           render={({ field }) => (
@@ -249,7 +257,7 @@ export default function LoginForm() {
               <FormMessage />
             </FormItem>
           )}
-        />
+        /> */}
 
         {/* OTP Section */}
         <div className="space-y-4 border rounded-lg p-4 bg-primary/5">
@@ -292,7 +300,7 @@ export default function LoginForm() {
           {otpRequested && (
             <Alert>
               <AlertDescription>
-                OTP sent to your registered email.{" "}
+                OTP sent to your email.{" "}
                 {otpTimer > 0 && `Expires in ${formatTime(otpTimer)}`}
               </AlertDescription>
             </Alert>

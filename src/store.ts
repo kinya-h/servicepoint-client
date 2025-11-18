@@ -4,6 +4,8 @@ import { serviceSlice } from './features/local-services/serviceSlice'
 import { bookingsSlice } from './features/bookings/bookingSlice'
 import { providersSlice } from './features/provider/providerSlice'
 import feedbackSllice from './features/feedback/feedbackSllice'
+import { providerAuthSlice } from './features/provider/providerAuthSlice '
+import { adminProviderRegistrationSlice } from './features/admin/adminProviderRegistrationSlice'
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +14,8 @@ export const store = configureStore({
     bookings: bookingsSlice.reducer,
     providers: providersSlice.reducer,
     feedback: feedbackSllice,
+    providerAuth: providerAuthSlice.reducer,
+    adminProviderRegistrations: adminProviderRegistrationSlice.reducer,
 
   },
 

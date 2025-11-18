@@ -7,7 +7,6 @@ import {
 import AppLayout from "./AppLayout";
 import LoginPage from "./pages/Login";
 import BookServicePage from "./pages/book/BookService";
-import RegisterPage from "./pages/Register";
 import DashboardPage from "./pages/dashboard/page";
 import BookingsPage from "./pages/bookings/page";
 import SubmitFeedbackPage from "./pages/feedback/page";
@@ -21,6 +20,8 @@ import ProviderProfilePage from "./pages/providers/ProviderDetails";
 import NewBooking from "./pages/bookings/NewBooking";
 import UserBookingsFeedbackPage from "./pages/feedback/UserBookingsFeedbackPage";
 import SettingsPage from "./pages/settings/page";
+import ProviderRegistrationsAdmin from "./pages/admin/ProviderRegistrationsAdmin";
+import RegisterPage from "./pages/auth/Register";
 
 function App() {
   const router = createBrowserRouter(
@@ -29,7 +30,7 @@ function App() {
         <Route index element={<HomePage />} />
         <Route path="/main/book/:serviceId" element={<BookServicePage />} />
         <Route path="/auth/login" element={<LoginPage />} />
-        <Route path="/auth/register" element={<RegisterPage />} />
+        <Route path="/auth/register" element={<RegisterPage />} />{" "}
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/dashboard/settings" element={<SettingsPage />} />
         <Route path="/dashboard/provider" element={<ProviderDashboardPage />} />
@@ -50,7 +51,6 @@ function App() {
           path="/providers/:providerId"
           element={<ProviderProfilePage />}
         />
-
         <Route
           path="/dashboard/provider-bookings"
           element={<ProviderBookingsPage />}
@@ -60,6 +60,10 @@ function App() {
           element={<SubmitFeedbackPage />}
         />
         <Route path="/dashboard/profile" element={<ProfilePage />} />
+        <Route
+          path="/dashboard/admin"
+          element={<ProviderRegistrationsAdmin />}
+        />
         {/* <Route index element={<Home />} /> */}
       </Route>
     )

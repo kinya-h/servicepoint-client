@@ -3,8 +3,6 @@ import { Loader2 } from "lucide-react";
 import LoginForm from "../components/auth/LoginForm";
 import { Link } from "react-router-dom";
 
-// The LoginForm itself will now use useSearchParams via useAuth,
-// but we wrap the page content in Suspense for good measure if searchParams were directly used here.
 function LoginPageContent() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
@@ -32,11 +30,6 @@ function LoginPageContent() {
 
 export default function LoginPage() {
   return (
-    // AuthProvider now uses useSearchParams, so Suspense boundary should be at a higher level (RootLayout)
-    // or the component using useSearchParams (AuthContext/LoginForm) should be wrapped.
-    // Since AuthContext is high up, and LoginForm is where the actual interaction might depend on it,
-    // let's ensure this page can render, and AuthContext/LoginForm will handle Suspense if needed.
-    // For now, simple Suspense wrapper for this page content.
     <Suspense
       fallback={
         <div className="flex justify-center items-center min-h-[60vh]">

@@ -1,3 +1,4 @@
+// components/auth/CustomerRegisterForm.tsx
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -11,17 +12,23 @@ import {
   FormMessage,
 } from "../../components/ui/form";
 import { Input } from "../../components/ui/input";
-import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
 import { useToast } from "../../hooks/use-toast";
-import { UserPlus, MapPin, Loader2, Mail, Shield } from "lucide-react";
+import {
+  UserPlus,
+  MapPin,
+  Loader2,
+  Mail,
+  Shield,
+  CheckCircle,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Alert, AlertDescription } from "../../components/ui/alert";
 import { useAppDispatch } from "../../hooks/hooks";
 import {
   signUpUser,
   requestRegistrationOtp,
 } from "../../services/user-service";
-import { Link, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { Alert, AlertDescription } from "../../components/ui/alert";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -29,26 +36,22 @@ const formSchema = z.object({
   password: z
     .string()
     .min(6, { message: "Password must be at least 6 characters." }),
-  role: z.enum(["customer"], {
-    required_error: "You need to select a role.",
-  }),
-  location: z.string().optional(),
-  latitude: z.number().min(-90).max(90).nullable(),
-  longitude: z.number().min(-180).max(180).nullable(),
-  otpCode: z
-    .string()
-    .regex(/^\d{6}$/, { message: "OTP must be 6 digits." })
-    .optional(),
+  location: z.string().min(1, { message: "Location is required." }),
+  latitude: z.number({ required_error: "Please capture your location." }),
+  longitude: z.number({ required_error: "Please capture your location." }),
+  otpCode: z.string().regex(/^\d{6}$/, { message: "OTP must be 6 digits." }),
 });
 
-export default function RegisterForm() {
-  const dispatch = useAppDispatch();
+export default function CustomerRegisterForm() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const dispatch = useAppDispatch();
+
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [otpRequested, setOtpRequested] = useState(false);
   const [isRequestingOtp, setIsRequestingOtp] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -56,15 +59,11 @@ export default function RegisterForm() {
       name: "",
       email: "",
       password: "",
-      role: "customer",
       location: "",
-      latitude: null,
-      longitude: null,
       otpCode: "",
     },
   });
 
-  // Countdown timer for OTP
   useEffect(() => {
     if (otpTimer > 0) {
       const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
@@ -88,7 +87,6 @@ export default function RegisterForm() {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-
         form.setValue("latitude", latitude);
         form.setValue("longitude", longitude);
 
@@ -97,14 +95,8 @@ export default function RegisterForm() {
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
           );
           const data = await response.json();
-
           const locationName =
-            data.address?.city ||
-            data.address?.town ||
-            data.address?.county ||
-            data.address?.state ||
-            "Unknown Location";
-
+            data.address?.city || data.address?.town || "Unknown Location";
           form.setValue("location", locationName);
 
           toast({
@@ -121,44 +113,23 @@ export default function RegisterForm() {
             description: "Coordinates saved successfully.",
           });
         }
-
         setIsGettingLocation(false);
       },
       (error) => {
-        let errorMessage = "Unable to get your location.";
-
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage =
-              "Location permission denied. Please enable location access.";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information unavailable.";
-            break;
-          case error.TIMEOUT:
-            errorMessage = "Location request timed out.";
-            break;
-        }
-
         toast({
           title: "Location Error",
-          description: errorMessage,
+          description: "Unable to get your location.",
           variant: "destructive",
         });
-
         setIsGettingLocation(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
       }
     );
   };
 
   const handleRequestOtp = async () => {
-    // Validate email before requesting OTP
     const email = form.getValues("email");
+    const latitude = form.getValues("latitude");
+    const longitude = form.getValues("longitude");
 
     if (!email || !email.includes("@")) {
       toast({
@@ -169,19 +140,23 @@ export default function RegisterForm() {
       return;
     }
 
+    if (!latitude || !longitude) {
+      toast({
+        title: "Location Required",
+        description: "Please capture your location before requesting OTP.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsRequestingOtp(true);
-
     try {
-      const response = await dispatch(
-        requestRegistrationOtp({ email })
-      ).unwrap();
-
+      await dispatch(requestRegistrationOtp({ email })).unwrap();
       setOtpRequested(true);
-      setOtpTimer(600); // 10 minutes countdown
-
+      setOtpTimer(600);
       toast({
         title: "OTP Sent Successfully",
-        description: `A 6-digit code has been sent to ${email}. Check your inbox.`,
+        description: `A 6-digit code has been sent to ${email}.`,
       });
     } catch (error: any) {
       toast({
@@ -203,59 +178,38 @@ export default function RegisterForm() {
       });
       return;
     }
-
     await handleRequestOtp();
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    // Validate that location data is present
-    if (!values.latitude || !values.longitude) {
-      toast({
-        title: "Location Required",
-        description: "Please capture your location before registering.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate OTP is present
-    if (!values.otpCode || values.otpCode.length !== 6) {
-      toast({
-        title: "OTP Required",
-        description: "Please enter the 6-digit OTP code sent to your email.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    setIsSubmitting(true);
     try {
       const response = await dispatch(
         signUpUser({
           username: values.name,
           email: values.email,
           password: values.password,
-          role: values.role,
-          location: values.location || "",
+          role: "customer",
+          location: values.location,
           latitude: values.latitude,
           longitude: values.longitude,
           otpCode: values.otpCode,
         })
-      );
+      ).unwrap();
 
-      if (response.meta.requestStatus === "fulfilled") {
-        toast({
-          title: "Registration Successful",
-          description: `Welcome, ${values.name}! Your account has been created.`,
-        });
-
-        navigate("/auth/login");
-      }
+      toast({
+        title: "Registration Successful!",
+        description: `Welcome, ${values.name}! Your account has been created.`,
+      });
+      navigate("/auth/login");
     } catch (error: any) {
       toast({
         title: "Registration Failed",
         description: error || "An error occurred during registration.",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -265,17 +219,19 @@ export default function RegisterForm() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const isLocationCaptured = form.watch("latitude") && form.watch("longitude");
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Username</FormLabel>
+              <FormLabel>Full Name</FormLabel>
               <FormControl>
-                <Input placeholder="John" {...field} autoCorrect="off" />
+                <Input placeholder="Your full name" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -292,8 +248,6 @@ export default function RegisterForm() {
                 <Input
                   placeholder="you@example.com"
                   {...field}
-                  autoComplete="email"
-                  autoCorrect="off"
                   disabled={otpRequested}
                 />
               </FormControl>
@@ -309,43 +263,7 @@ export default function RegisterForm() {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input
-                  type="password"
-                  placeholder="••••••••"
-                  {...field}
-                  autoComplete="new-password"
-                  autoCorrect="off"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="role"
-          render={({ field }) => (
-            <FormItem className="space-y-3">
-              <FormLabel>Register as</FormLabel>
-              <FormControl>
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  className="flex space-x-4"
-                >
-                  <FormItem className="flex items-center space-x-2 space-y-0">
-                    <FormControl>
-                      <RadioGroupItem value="customer" />
-                    </FormControl>
-                    <FormLabel className="font-normal">Customer</FormLabel>
-                  </FormItem>
-                  <FormItem className="flex items-center space-x-2 space-y-0">
-                    <Link to="/auth/provider-register">
-                      are you a provider, register here
-                    </Link>
-                  </FormItem>
-                </RadioGroup>
+                <Input type="password" placeholder="••••••••" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -353,10 +271,20 @@ export default function RegisterForm() {
         />
 
         {/* Location Section */}
-        <div className="space-y-4 border rounded-lg p-4 bg-muted/50">
+        <div
+          className={`space-y-3 border-2 rounded-lg p-4 ${
+            isLocationCaptured
+              ? "border-green-200 bg-green-50"
+              : "border-blue-200 bg-blue-50"
+          }`}
+        >
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-medium text-sm">Location</h3>
+              <h3 className="font-medium text-sm flex items-center">
+                <MapPin className="mr-2 h-4 w-4" />
+                Your Location
+                <span className="text-red-500 ml-1">*</span>
+              </h3>
               <p className="text-xs text-muted-foreground mt-1">
                 Required for finding nearby services
               </p>
@@ -365,19 +293,15 @@ export default function RegisterForm() {
               type="button"
               onClick={getCurrentLocation}
               disabled={isGettingLocation}
-              variant="outline"
+              variant={isLocationCaptured ? "outline" : "default"}
               size="sm"
             >
               {isGettingLocation ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Getting...
-                </>
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isLocationCaptured ? (
+                <CheckCircle className="h-4 w-4 text-green-600" />
               ) : (
-                <>
-                  <MapPin className="mr-2 h-4 w-4" />
-                  Get Location
-                </>
+                <MapPin className="h-4 w-4" />
               )}
             </Button>
           </div>
@@ -387,13 +311,13 @@ export default function RegisterForm() {
             name="location"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Location Name</FormLabel>
+                <FormLabel className="text-xs">Location Name</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="City or area"
+                    placeholder="Your city or area"
                     {...field}
                     readOnly
-                    className="bg-background"
+                    className="bg-background h-9"
                   />
                 </FormControl>
                 <FormMessage />
@@ -401,49 +325,17 @@ export default function RegisterForm() {
             )}
           />
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="latitude"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Latitude</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="0.0000"
-                      value={field.value ?? ""}
-                      readOnly
-                      className="bg-background"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="longitude"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Longitude</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="0.0000"
-                      value={field.value ?? ""}
-                      readOnly
-                      className="bg-background"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+          {!isLocationCaptured && (
+            <Alert variant="destructive" className="py-2">
+              <AlertDescription className="text-xs">
+                Location is required. Please click the location button above.
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
 
         {/* OTP Section */}
-        <div className="space-y-4 border rounded-lg p-4 bg-primary/5">
+        <div className="space-y-3 border rounded-lg p-4 bg-primary/5">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-medium text-sm flex items-center">
@@ -457,32 +349,27 @@ export default function RegisterForm() {
             <Button
               type="button"
               onClick={otpRequested ? handleResendOtp : handleRequestOtp}
-              disabled={isRequestingOtp || (otpRequested && otpTimer > 540)}
+              disabled={
+                !isLocationCaptured ||
+                isRequestingOtp ||
+                (otpRequested && otpTimer > 540)
+              }
               variant={otpRequested ? "outline" : "default"}
               size="sm"
             >
               {isRequestingOtp ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
-                </>
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : otpRequested ? (
-                <>
-                  <Mail className="mr-2 h-4 w-4" />
-                  Resend OTP
-                </>
+                <Mail className="h-4 w-4" />
               ) : (
-                <>
-                  <Mail className="mr-2 h-4 w-4" />
-                  Send OTP
-                </>
+                <Mail className="h-4 w-4" />
               )}
             </Button>
           </div>
 
           {otpRequested && (
-            <Alert>
-              <AlertDescription>
+            <Alert className="py-2">
+              <AlertDescription className="text-xs">
                 OTP sent to your email.{" "}
                 {otpTimer > 0 && `Expires in ${formatTime(otpTimer)}`}
               </AlertDescription>
@@ -501,7 +388,7 @@ export default function RegisterForm() {
                     {...field}
                     maxLength={6}
                     disabled={!otpRequested}
-                    className="text-center text-lg tracking-widest"
+                    className="text-center text-lg tracking-widest h-11"
                   />
                 </FormControl>
                 <FormMessage />
@@ -512,15 +399,15 @@ export default function RegisterForm() {
 
         <Button
           type="submit"
-          className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
-          disabled={!otpRequested || form.formState.isSubmitting}
+          className="w-full h-11"
+          disabled={!otpRequested || !isLocationCaptured || isSubmitting}
         >
-          {form.formState.isSubmitting ? (
+          {isSubmitting ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <UserPlus className="mr-2 h-4 w-4" />
           )}
-          Register
+          Create Customer Account
         </Button>
       </form>
     </Form>

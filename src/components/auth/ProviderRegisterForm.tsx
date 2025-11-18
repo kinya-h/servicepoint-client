@@ -11,27 +11,39 @@ import {
   FormMessage,
 } from "../../components/ui/form";
 import { Input } from "../../components/ui/input";
-import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
 import { useToast } from "../../hooks/use-toast";
-import { UserPlus, MapPin, Loader2, Mail, Shield } from "lucide-react";
-import { useAppDispatch } from "../../hooks/hooks";
 import {
-  signUpUser,
-  requestRegistrationOtp,
-} from "../../services/user-service";
-import { Link, useNavigate } from "react-router-dom";
+  UserPlus,
+  MapPin,
+  Loader2,
+  Mail,
+  Shield,
+  FileUp,
+  CheckCircle,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Alert, AlertDescription } from "../../components/ui/alert";
+import { useAppDispatch } from "../../hooks/hooks";
+import { useSelector } from "react-redux";
+import type { RootState } from "../../store";
+import {
+  requestProviderRegistrationOtp,
+  submitProviderRegistration,
+} from "../../services/provider-auth-service";
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  firstName: z
+    .string()
+    .min(2, { message: "First name must be at least 2 characters." }),
+  lastName: z
+    .string()
+    .min(2, { message: "Last name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   password: z
     .string()
     .min(6, { message: "Password must be at least 6 characters." }),
-  role: z.enum(["customer"], {
-    required_error: "You need to select a role.",
-  }),
+  phoneNumber: z.string().optional(),
   location: z.string().optional(),
   latitude: z.number().min(-90).max(90).nullable(),
   longitude: z.number().min(-180).max(180).nullable(),
@@ -39,24 +51,30 @@ const formSchema = z.object({
     .string()
     .regex(/^\d{6}$/, { message: "OTP must be 6 digits." })
     .optional(),
+  documents: z.any().optional(),
 });
 
-export default function RegisterForm() {
-  const dispatch = useAppDispatch();
+export default function ProviderRegisterForm() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const dispatch = useAppDispatch();
+
+  const { otpRequested, registrationStatus, error } = useSelector(
+    (state: RootState) => state.providerAuth
+  );
+
   const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [otpRequested, setOtpRequested] = useState(false);
-  const [isRequestingOtp, setIsRequestingOtp] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
+  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
+      firstName: "",
+      lastName: "",
       email: "",
       password: "",
-      role: "customer",
+      phoneNumber: "",
       location: "",
       latitude: null,
       longitude: null,
@@ -64,13 +82,35 @@ export default function RegisterForm() {
     },
   });
 
-  // Countdown timer for OTP
   useEffect(() => {
     if (otpTimer > 0) {
       const timer = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
       return () => clearTimeout(timer);
     }
   }, [otpTimer]);
+
+  // Show error toast when Redux error changes
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error",
+        description: error,
+        variant: "destructive",
+      });
+    }
+  }, [error, toast]);
+
+  // Handle successful registration
+  useEffect(() => {
+    if (registrationStatus === "succeeded") {
+      toast({
+        title: "Registration Submitted!",
+        description:
+          "Your application is pending approval. We'll notify you via email.",
+      });
+      navigate("/auth/provider-login");
+    }
+  }, [registrationStatus, navigate, toast]);
 
   const getCurrentLocation = () => {
     setIsGettingLocation(true);
@@ -88,7 +128,6 @@ export default function RegisterForm() {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-
         form.setValue("latitude", latitude);
         form.setValue("longitude", longitude);
 
@@ -97,7 +136,6 @@ export default function RegisterForm() {
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
           );
           const data = await response.json();
-
           const locationName =
             data.address?.city ||
             data.address?.town ||
@@ -106,7 +144,6 @@ export default function RegisterForm() {
             "Unknown Location";
 
           form.setValue("location", locationName);
-
           toast({
             title: "Location Captured",
             description: `Your location: ${locationName}`,
@@ -125,39 +162,18 @@ export default function RegisterForm() {
         setIsGettingLocation(false);
       },
       (error) => {
-        let errorMessage = "Unable to get your location.";
-
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage =
-              "Location permission denied. Please enable location access.";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information unavailable.";
-            break;
-          case error.TIMEOUT:
-            errorMessage = "Location request timed out.";
-            break;
-        }
-
         toast({
           title: "Location Error",
-          description: errorMessage,
+          description: "Unable to get your location.",
           variant: "destructive",
         });
-
         setIsGettingLocation(false);
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
   const handleRequestOtp = async () => {
-    // Validate email before requesting OTP
     const email = form.getValues("email");
 
     if (!email || !email.includes("@")) {
@@ -169,28 +185,14 @@ export default function RegisterForm() {
       return;
     }
 
-    setIsRequestingOtp(true);
+    const result = await dispatch(requestProviderRegistrationOtp({ email }));
 
-    try {
-      const response = await dispatch(
-        requestRegistrationOtp({ email })
-      ).unwrap();
-
-      setOtpRequested(true);
-      setOtpTimer(600); // 10 minutes countdown
-
+    if (requestProviderRegistrationOtp.fulfilled.match(result)) {
+      setOtpTimer(600);
       toast({
         title: "OTP Sent Successfully",
-        description: `A 6-digit code has been sent to ${email}. Check your inbox.`,
+        description: `A 6-digit code has been sent to ${email}.`,
       });
-    } catch (error: any) {
-      toast({
-        title: "OTP Request Failed",
-        description: error || "Failed to send OTP. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsRequestingOtp(false);
     }
   };
 
@@ -203,12 +205,10 @@ export default function RegisterForm() {
       });
       return;
     }
-
     await handleRequestOtp();
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    // Validate that location data is present
     if (!values.latitude || !values.longitude) {
       toast({
         title: "Location Required",
@@ -218,45 +218,33 @@ export default function RegisterForm() {
       return;
     }
 
-    // Validate OTP is present
     if (!values.otpCode || values.otpCode.length !== 6) {
       toast({
         title: "OTP Required",
-        description: "Please enter the 6-digit OTP code sent to your email.",
+        description: "Please enter the 6-digit OTP code.",
         variant: "destructive",
       });
       return;
     }
 
-    try {
-      const response = await dispatch(
-        signUpUser({
-          username: values.name,
-          email: values.email,
-          password: values.password,
-          role: values.role,
-          location: values.location || "",
-          latitude: values.latitude,
-          longitude: values.longitude,
-          otpCode: values.otpCode,
-        })
-      );
+    const formData = new FormData();
+    formData.append("firstName", values.firstName);
+    formData.append("lastName", values.lastName);
+    formData.append("email", values.email);
+    formData.append("password", values.password);
+    formData.append("phoneNumber", values.phoneNumber || "");
+    formData.append("location", values.location || "");
+    formData.append("latitude", values.latitude.toString());
+    formData.append("longitude", values.longitude.toString());
+    formData.append("otpCode", values.otpCode);
 
-      if (response.meta.requestStatus === "fulfilled") {
-        toast({
-          title: "Registration Successful",
-          description: `Welcome, ${values.name}! Your account has been created.`,
-        });
-
-        navigate("/auth/login");
-      }
-    } catch (error: any) {
-      toast({
-        title: "Registration Failed",
-        description: error || "An error occurred during registration.",
-        variant: "destructive",
+    if (selectedFiles) {
+      Array.from(selectedFiles).forEach((file) => {
+        formData.append("documents", file);
       });
     }
+
+    await dispatch(submitProviderRegistration(formData));
   }
 
   const formatTime = (seconds: number) => {
@@ -265,22 +253,40 @@ export default function RegisterForm() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const isSubmitting = registrationStatus === "loading";
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Username</FormLabel>
-              <FormControl>
-                <Input placeholder="John" {...field} autoCorrect="off" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="firstName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>First Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="John" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="lastName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Last Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Doe" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <FormField
           control={form.control}
@@ -292,8 +298,6 @@ export default function RegisterForm() {
                 <Input
                   placeholder="you@example.com"
                   {...field}
-                  autoComplete="email"
-                  autoCorrect="off"
                   disabled={otpRequested}
                 />
               </FormControl>
@@ -309,13 +313,7 @@ export default function RegisterForm() {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input
-                  type="password"
-                  placeholder="••••••••"
-                  {...field}
-                  autoComplete="new-password"
-                  autoCorrect="off"
-                />
+                <Input type="password" placeholder="••••••••" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -324,28 +322,12 @@ export default function RegisterForm() {
 
         <FormField
           control={form.control}
-          name="role"
+          name="phoneNumber"
           render={({ field }) => (
-            <FormItem className="space-y-3">
-              <FormLabel>Register as</FormLabel>
+            <FormItem>
+              <FormLabel>Phone Number (Optional)</FormLabel>
               <FormControl>
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  className="flex space-x-4"
-                >
-                  <FormItem className="flex items-center space-x-2 space-y-0">
-                    <FormControl>
-                      <RadioGroupItem value="customer" />
-                    </FormControl>
-                    <FormLabel className="font-normal">Customer</FormLabel>
-                  </FormItem>
-                  <FormItem className="flex items-center space-x-2 space-y-0">
-                    <Link to="/auth/provider-register">
-                      are you a provider, register here
-                    </Link>
-                  </FormItem>
-                </RadioGroup>
+                <Input placeholder="+1234567890" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -358,7 +340,7 @@ export default function RegisterForm() {
             <div>
               <h3 className="font-medium text-sm">Location</h3>
               <p className="text-xs text-muted-foreground mt-1">
-                Required for finding nearby services
+                Required for service area
               </p>
             </div>
             <Button
@@ -400,46 +382,32 @@ export default function RegisterForm() {
               </FormItem>
             )}
           />
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="latitude"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Latitude</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="0.0000"
-                      value={field.value ?? ""}
-                      readOnly
-                      className="bg-background"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="longitude"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Longitude</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="0.0000"
-                      value={field.value ?? ""}
-                      readOnly
-                      className="bg-background"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        {/* Documents Upload */}
+        <div className="space-y-4 border rounded-lg p-4 bg-muted/50">
+          <div>
+            <h3 className="font-medium text-sm flex items-center">
+              <FileUp className="mr-2 h-4 w-4" />
+              Supporting Documents
+            </h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Upload certificates, ID proof, or other relevant documents
+            </p>
           </div>
+          <Input
+            type="file"
+            multiple
+            accept=".pdf,.jpg,.jpeg,.png"
+            onChange={(e) => setSelectedFiles(e.target.files)}
+            className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+          />
+          {selectedFiles && selectedFiles.length > 0 && (
+            <div className="text-sm text-muted-foreground">
+              <CheckCircle className="inline h-4 w-4 mr-2 text-green-600" />
+              {selectedFiles.length} file(s) selected
+            </div>
+          )}
         </div>
 
         {/* OTP Section */}
@@ -457,16 +425,11 @@ export default function RegisterForm() {
             <Button
               type="button"
               onClick={otpRequested ? handleResendOtp : handleRequestOtp}
-              disabled={isRequestingOtp || (otpRequested && otpTimer > 540)}
+              disabled={otpRequested && otpTimer > 540}
               variant={otpRequested ? "outline" : "default"}
               size="sm"
             >
-              {isRequestingOtp ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
-                </>
-              ) : otpRequested ? (
+              {otpRequested ? (
                 <>
                   <Mail className="mr-2 h-4 w-4" />
                   Resend OTP
@@ -513,15 +476,22 @@ export default function RegisterForm() {
         <Button
           type="submit"
           className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
-          disabled={!otpRequested || form.formState.isSubmitting}
+          disabled={!otpRequested || isSubmitting}
         >
-          {form.formState.isSubmitting ? (
+          {isSubmitting ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <UserPlus className="mr-2 h-4 w-4" />
           )}
-          Register
+          Submit Provider Registration
         </Button>
+
+        <Alert>
+          <AlertDescription className="text-sm">
+            Your application will be reviewed by our admin team. You'll receive
+            an email notification once your registration is approved.
+          </AlertDescription>
+        </Alert>
       </form>
     </Form>
   );

@@ -36,6 +36,13 @@ export default function DashboardPage() {
       loginResponse?.user.role === "provider"
     ) {
       navigate("/dashboard/provider"); // Redirect provider to their specific dashboard
+    } else if (
+      !loading &&
+      isAuthenticated === true &&
+      loginResponse?.user &&
+      loginResponse?.user.role === "admin"
+    ) {
+      navigate("/dashboard/admin"); // Redirect admin to their specific dashboard
     }
   }, [isAuthenticated, loginResponse, loading, navigate]);
 
