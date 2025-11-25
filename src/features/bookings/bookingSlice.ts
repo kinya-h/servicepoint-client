@@ -1,6 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 
-import { createBooking, deleteBooking, fetchBookings, fetchProviderBookings, updateBooking } from "../../services/booking-service";
+import { createBooking, deleteBooking, fetchBookings, fetchProviderBookings, fetchUserBookings, updateBooking } from "../../services/booking-service";
 import type { Booking } from "../../types/booking";
 
 
@@ -47,6 +47,10 @@ export const bookingsSlice = createSlice({
       )
       .addCase(deleteBooking.fulfilled, (state, action) => {
         state.bookings = state.bookings.filter(booking => booking.id.toString() !== action.payload);
+      })
+      .addCase(fetchUserBookings.fulfilled, (state, action) => {
+        state.status = 'succeeded';
+        state.bookings = action.payload;
       });
   },
 });

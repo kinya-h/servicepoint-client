@@ -12,7 +12,7 @@ export const fetchBookings = createAsyncThunk<Booking[]>(
 );
 
 export const fetchUserBookings = createAsyncThunk<Booking[], number>(
-  "bookings/fetch",
+  "bookings/fetchUser",
   async (userId) => {
     const response = await axiosInstance.get(`${API_URL}/api/bookings`, {
       params: {
@@ -22,7 +22,6 @@ export const fetchUserBookings = createAsyncThunk<Booking[], number>(
     return response.data as Booking[];
   }
 );
-
 
 export const fetchProviderBookings = createAsyncThunk<Booking[], number>(
   "bookings/provider/fetch",
@@ -36,8 +35,6 @@ export const fetchProviderBookings = createAsyncThunk<Booking[], number>(
   }
 );
 
-
-
 export const createBooking = createAsyncThunk<Booking, Omit<Booking, 'id'>>(
   "bookings/create",
   async (newBooking) => {
@@ -50,7 +47,6 @@ export const createBooking = createAsyncThunk<Booking, Omit<Booking, 'id'>>(
 
     const data = response.data;
 
-    // normalize backend response -> match Booking type
     return {
       id: data.bookingId,
       serviceDateTime: data.serviceDateTime,
@@ -60,7 +56,25 @@ export const createBooking = createAsyncThunk<Booking, Omit<Booking, 'id'>>(
       pricingTypeAtBooking: data.pricingTypeAtBooking,
       customer: data.customer,
       provider: data.provider,
+      service: data.service,
+      bookingDate: data.bookingDate,
+      paymentStatus: data.paymentStatus,
+      totalPrice: data.totalPrice,
     } as Booking;
+  }
+);
+
+export const createStripeCheckoutSession = createAsyncThunk<
+  { sessionId: string; url: string },
+  number
+>(
+  "bookings/createCheckoutSession",
+  async (bookingId) => {
+    const response = await axiosInstance.post(
+      `${API_URL}/api/payments/create-checkout-session`,
+      { bookingId }
+    );
+    return response.data;
   }
 );
 
@@ -75,7 +89,6 @@ export const updateBooking = createAsyncThunk<Booking, Booking>(
 
     const data = response.data;
 
-    // normalize backend response -> match Booking type
     return {
       id: data.bookingId,
       serviceDateTime: data.serviceDateTime,
@@ -85,10 +98,13 @@ export const updateBooking = createAsyncThunk<Booking, Booking>(
       pricingTypeAtBooking: data.pricingTypeAtBooking,
       customer: data.customer,
       provider: data.provider,
+      service: data.service,
+      bookingDate: data.bookingDate,
+      paymentStatus: data.paymentStatus,
+      totalPrice: data.totalPrice,
     } as Booking;
   }
 );
-
 
 export const deleteBooking = createAsyncThunk<string, string>(
   "bookings/delete",
@@ -97,6 +113,3 @@ export const deleteBooking = createAsyncThunk<string, string>(
     return bookingId;
   }
 );
-
-
-

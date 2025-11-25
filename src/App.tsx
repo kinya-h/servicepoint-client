@@ -22,6 +22,9 @@ import UserBookingsFeedbackPage from "./pages/feedback/UserBookingsFeedbackPage"
 import SettingsPage from "./pages/settings/page";
 import ProviderRegistrationsAdmin from "./pages/admin/ProviderRegistrationsAdmin";
 import RegisterPage from "./pages/auth/Register";
+import PaymentSuccessPage from "./pages/payments/PaymentSuccessPage";
+import PaymentCancelPage from "./pages/payments/PaymentCancelPage";
+import ProviderLoginPage from "./pages/ProviderLoginPage";
 
 function App() {
   const router = createBrowserRouter(
@@ -31,6 +34,7 @@ function App() {
         <Route path="/main/book/:serviceId" element={<BookServicePage />} />
         <Route path="/auth/login" element={<LoginPage />} />
         <Route path="/auth/register" element={<RegisterPage />} />{" "}
+        <Route path="auth/provider-login" element={<ProviderLoginPage />} />{" "}
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/dashboard/settings" element={<SettingsPage />} />
         <Route path="/dashboard/provider" element={<ProviderDashboardPage />} />
@@ -61,10 +65,14 @@ function App() {
         />
         <Route path="/dashboard/profile" element={<ProfilePage />} />
         <Route
+          path="/booking/payment/success"
+          element={<PaymentSuccessPage />}
+        />
+        <Route path="/booking/payment/cancel" element={<PaymentCancelPage />} />
+        <Route
           path="/dashboard/admin"
           element={<ProviderRegistrationsAdmin />}
         />
-        {/* <Route index element={<Home />} /> */}
       </Route>
     )
   );

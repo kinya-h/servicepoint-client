@@ -3,20 +3,22 @@ import type { Service } from "./Service";
 
 
 
-
-
-
 export interface Booking {
   id: number;
   customer: UserInfo;
   provider: ProviderInfo;
   service: Service;
   bookingDate: string;
-  serviceDateTime: string; // ISO string for date
-  status: "completed" | "confirmed" | "pending" | "cancelled" | "rescheduled" | "declined";
-  notes?: string; // Optional property
+  serviceDateTime: string;
+  status: "completed" | "confirmed" | "pending" | "cancelled" | "rescheduled" | "declined" | "paid" | "in_progress";
+  notes?: string;
   priceAtBooking: number;
   pricingTypeAtBooking: "hourly" | "per_work";
+  totalPrice: number;
+  paymentStatus: "pending" | "completed" | "failed" | "cancelled" | "refunded";
+  stripeSessionId?: string;
+  stripePaymentIntentId?: string;
+  paidAt?: string;
 }
 
 

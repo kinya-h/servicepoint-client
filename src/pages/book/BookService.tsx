@@ -30,14 +30,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, CreditCard } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "../../store";
 import { getServices } from "../../services/local-service";
-import { createBooking } from "../../services/booking-service";
+import {
+  createBooking,
+  createStripeCheckoutSession,
+} from "../../services/booking-service";
 import type { Service } from "../../types/Service";
+import type { Booking } from "../../types/booking";
 
-// Define your schemas
 const generalBookingSchema = z.object({
   serviceDateTime: z.string().min(1, "Service date and time are required."),
   notes: z.string().optional(),
@@ -77,7 +80,6 @@ type TutoringBookingFormValues = z.infer<typeof tutoringBookingSchema>;
 
 const BookServicePage: React.FC = () => {
   const { serviceId } = useParams<{ serviceId: string }>();
-  console.log("Sercice ID = ", serviceId);
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { loginResponse, loading: authIsLoading } = useSelector(
@@ -89,6 +91,7 @@ const BookServicePage: React.FC = () => {
 
   const [service, setService] = useState<Service>({} as Service);
   const [pageLoading, setPageLoading] = useState(true);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const isTutoringService = service?.category === "Tutoring";
 
@@ -121,14 +124,13 @@ const BookServicePage: React.FC = () => {
 
   useEffect(() => {
     if (!authIsLoading && !loginResponse) {
-      toast.error(`Login Required, Please login to book a service.`);
-
+      toast.error(`Login Required. Please login to book a service.`);
       navigate(`/auth/login?redirect=/book/${serviceId}`);
       return;
     }
 
     dispatch(getServices());
-  }, [serviceId, authIsLoading, loginResponse, navigate, toast, dispatch]);
+  }, [serviceId, authIsLoading, loginResponse, navigate, dispatch]);
 
   useEffect(() => {
     if (!servicesLoading && serviceId) {
@@ -142,66 +144,121 @@ const BookServicePage: React.FC = () => {
 
   const handleGeneralSubmit = async (values: GeneralBookingFormValues) => {
     if (!service || !loginResponse) return;
-    console.log("General Booking submitted:", {
-      ...values,
-      customerId: loginResponse?.user?.id,
-      serviceId: service.serviceId,
-    });
 
-    // private Integer customerId;
-    //     private Integer providerId;
-    //     private Integer serviceId;
-    //     private Timestamp bookingDate;
-    //     private Timestamp serviceDateTime;
-    //     private String status;
-    //     private String notes;
-    //     private Double priceAtBooking;
-    //     private String pricingTypeAtBooking;
+    setIsProcessingPayment(true);
 
-    // status, provider, bookingDate, priceAtBooking, pricingTypeAtBooking
-    const response = await dispatch(
-      createBooking({
-        ...values,
-        customer: loginResponse?.user,
-        service: service,
-        status: "pending",
-        provider: service.provider,
-        bookingDate: new Date().toISOString().split("T")[0],
-        priceAtBooking: service.price,
-        pricingTypeAtBooking: service.pricingType,
-      })
-    );
-
-    if (response.meta.requestStatus === "fulfilled") {
-      toast.success(
-        `Booking Confirmed! Your booking for ${service.name} on ${new Date(
-          values.serviceDateTime
-        ).toLocaleDateString()} is confirmed.`
+    try {
+      // Step 1: Create the booking
+      const bookingResponse = await dispatch(
+        createBooking({
+          ...values,
+          customer: loginResponse?.user,
+          service: service,
+          status: "pending",
+          provider: service.provider,
+          bookingDate: new Date().toISOString().split("T")[0],
+          priceAtBooking: service.price,
+          pricingTypeAtBooking: service.pricingType,
+          totalPrice: service.price,
+          paymentStatus: "pending",
+        })
       );
 
-      setTimeout(() => {
-        navigate("/dashboard/bookings");
-      }, 2000);
+      if (bookingResponse.meta.requestStatus === "fulfilled") {
+        const booking = bookingResponse.payload as Booking;
+
+        // Step 2: Create Stripe checkout session
+        const checkoutResponse = await dispatch(
+          createStripeCheckoutSession(booking.id)
+        );
+
+        if (checkoutResponse.meta.requestStatus === "fulfilled") {
+          const { url } = checkoutResponse.payload;
+
+          // Step 3: Redirect to Stripe checkout
+          toast.info("Redirecting to payment...");
+          window.location.href = url;
+        } else {
+          toast.error("Failed to create payment session. Please try again.");
+          setIsProcessingPayment(false);
+        }
+      } else {
+        toast.error("Failed to create booking. Please try again.");
+        setIsProcessingPayment(false);
+      }
+    } catch (error) {
+      console.error("Booking error:", error);
+      toast.error("An error occurred. Please try again.");
+      setIsProcessingPayment(false);
     }
   };
 
-  const handleTutoringSubmit = (values: TutoringBookingFormValues) => {
+  const handleTutoringSubmit = async (values: TutoringBookingFormValues) => {
     if (!service || !loginResponse) return;
-    console.log("Tutoring Booking submitted:", {
-      ...values,
-      serviceId,
-      customerId: loginResponse.user.id,
-      providerId: service.serviceId,
-    });
 
-    toast.success(
-      `Session Booked! tutoring session for ${service.name} is booked.`
-    );
+    setIsProcessingPayment(true);
 
-    navigate("/dashboard/bookings");
+    try {
+      // Calculate hours for tutoring session
+      const startTime = new Date(values.preferredDateTime);
+      const endTime = new Date(values.preferredEndTime);
+      const hours =
+        (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+      const totalPrice = service.price * hours;
+
+      // Step 1: Create the booking with tutoring-specific notes
+      const tutoringNotes = `Student: ${values.studentName}
+Grade: ${values.studentGrade || "N/A"}
+Email: ${values.studentEmail || "N/A"}
+Session Mode: ${values.sessionMode}
+Focus: ${values.focusNotes || "N/A"}`;
+
+      const bookingResponse = await dispatch(
+        createBooking({
+          serviceDateTime: values.preferredDateTime,
+          notes: tutoringNotes,
+          customer: loginResponse?.user,
+          service: service,
+          status: "pending",
+          provider: service.provider,
+          bookingDate: new Date().toISOString().split("T")[0],
+          priceAtBooking: service.price,
+          pricingTypeAtBooking: service.pricingType,
+          totalPrice: totalPrice,
+          paymentStatus: "pending",
+        })
+      );
+
+      if (bookingResponse.meta.requestStatus === "fulfilled") {
+        const booking = bookingResponse.payload as Booking;
+
+        // Step 2: Create Stripe checkout session
+        const checkoutResponse = await dispatch(
+          createStripeCheckoutSession(booking.id)
+        );
+
+        if (checkoutResponse.meta.requestStatus === "fulfilled") {
+          const { url } = checkoutResponse.payload as string;
+
+          // Step 3: Redirect to Stripe checkout
+          toast.info("Redirecting to payment...");
+          window.location.href = url;
+        } else {
+          toast.error("Failed to create payment session. Please try again.");
+          setIsProcessingPayment(false);
+        }
+      } else {
+        toast.error("Failed to create booking. Please try again.");
+        setIsProcessingPayment(false);
+      }
+    } catch (error) {
+      console.error("Booking error:", error);
+      toast.error("An error occurred. Please try again.");
+      setIsProcessingPayment(false);
+    }
   };
 
-  if (authIsLoading) {
+  if (authIsLoading || pageLoading) {
     return (
       <div className="flex justify-center items-center h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -209,7 +266,7 @@ const BookServicePage: React.FC = () => {
     );
   }
 
-  if (!service) {
+  if (!service || !service.serviceId) {
     return (
       <div className="max-w-xl mx-auto space-y-4">
         <ToastContainer />
@@ -235,6 +292,7 @@ const BookServicePage: React.FC = () => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
+      <ToastContainer />
       <Button
         variant="outline"
         onClick={() => navigate(-1)}
@@ -245,11 +303,33 @@ const BookServicePage: React.FC = () => {
       <h1 className="text-3xl font-bold font-headline text-center">
         Book Service: {service.name}
       </h1>
+
+      {/* Price Summary Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Price Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex justify-between items-center text-lg">
+            <span>Service Price:</span>
+            <span className="font-bold">
+              ${service.price?.toFixed(2)}
+              {service.pricingType === "hourly" ? "/hour" : ""}
+            </span>
+          </div>
+          {isTutoringService && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Final price will be calculated based on session duration
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       {isTutoringService ? (
         <Form {...tutoringForm}>
           <form
             onSubmit={tutoringForm.handleSubmit(handleTutoringSubmit)}
-            className="space-y-8"
+            className="space-y-6"
           >
             <FormField
               control={tutoringForm.control}
@@ -356,8 +436,19 @@ const BookServicePage: React.FC = () => {
             <Button
               type="submit"
               className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
+              disabled={isProcessingPayment}
             >
-              Book Session
+              {isProcessingPayment ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Proceed to Payment
+                </>
+              )}
             </Button>
           </form>
         </Form>
@@ -365,7 +456,7 @@ const BookServicePage: React.FC = () => {
         <Form {...generalForm}>
           <form
             onSubmit={generalForm.handleSubmit(handleGeneralSubmit)}
-            className="space-y-8"
+            className="space-y-6"
           >
             <FormField
               control={generalForm.control}
@@ -396,8 +487,19 @@ const BookServicePage: React.FC = () => {
             <Button
               type="submit"
               className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
+              disabled={isProcessingPayment}
             >
-              Confirm Booking
+              {isProcessingPayment ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Proceed to Payment
+                </>
+              )}
             </Button>
           </form>
         </Form>

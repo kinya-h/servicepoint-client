@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Card,
@@ -8,71 +8,117 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle, Loader2, XCircle } from "lucide-react";
+import { axiosInstance } from "../../lib/axios-instance";
+import { API_URL } from "../../constants";
 
-export function PaymentSuccessPage() {
+const PaymentSuccessPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [verificationComplete, setVerificationComplete] = useState(false);
 
   const sessionId = searchParams.get("session_id");
   const bookingId = searchParams.get("booking_id");
 
   useEffect(() => {
-    const verifyPayment = async () => {
+    const verifyAndCompletePayment = async () => {
       if (!sessionId || !bookingId) {
-        setError("Invalid payment session");
-        setIsLoading(false);
+        setError("Missing payment information");
+        setLoading(false);
         return;
       }
 
       try {
-        const response = await fetch(
-          `/api/payments/success?session_id=${sessionId}&booking_id=${bookingId}`
+        // Call the backend to verify the session with Stripe and update booking
+        const response = await axiosInstance.post(
+          `${API_URL}/api/payments/verify-and-complete`,
+          {
+            sessionId: sessionId,
+            bookingId: bookingId,
+          }
         );
 
-        if (!response.ok) {
-          throw new Error("Payment verification failed");
+        if (response.data.success) {
+          setVerificationComplete(true);
+        } else {
+          setError(response.data.message || "Payment verification failed");
         }
-
-        setIsLoading(false);
       } catch (err: any) {
-        setError(err.message);
-        setIsLoading(false);
+        console.error("Payment verification error:", err);
+
+        // Check if it's already been processed (idempotent)
+        if (err.response?.status === 409) {
+          // Payment already processed, show success
+          setVerificationComplete(true);
+        } else {
+          setError(
+            err.response?.data?.error ||
+              "Failed to verify payment. Please contact support if amount was charged."
+          );
+        }
+      } finally {
+        setLoading(false);
       }
     };
 
-    verifyPayment();
+    verifyAndCompletePayment();
   }, [sessionId, bookingId]);
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <div className="text-center">
+          <p className="text-lg font-semibold">Verifying your payment...</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Please don't close this page
+          </p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="max-w-md mx-auto mt-8">
-        <Card className="border-destructive">
+      <div className="max-w-2xl mx-auto mt-12 space-y-6">
+        <Card className="text-center p-8">
           <CardHeader>
-            <XCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <CardTitle className="text-center text-destructive">
+            <div className="flex justify-center mb-4">
+              <XCircle className="h-20 w-20 text-red-500" />
+            </div>
+            <CardTitle className="text-3xl font-headline text-red-600">
               Payment Verification Failed
             </CardTitle>
-            <CardDescription className="text-center">{error}</CardDescription>
+            <CardDescription className="text-lg mt-4">{error}</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button
-              onClick={() => navigate("/bookings")}
-              className="w-full"
-              variant="outline"
-            >
-              View My Bookings
-            </Button>
+          <CardContent className="space-y-4">
+            {bookingId && (
+              <div className="bg-muted p-4 rounded-lg">
+                <p className="text-sm text-muted-foreground">Booking ID</p>
+                <p className="text-lg font-semibold">{bookingId}</p>
+              </div>
+            )}
+            <p className="text-sm text-muted-foreground mt-4">
+              If your card was charged, please contact support with your booking
+              ID.
+            </p>
+            <div className="flex gap-4 mt-8">
+              <Button
+                onClick={() => navigate("/dashboard/bookings")}
+                className="flex-1"
+              >
+                View My Bookings
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate("/")}
+                className="flex-1"
+              >
+                Back to Home
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -80,90 +126,50 @@ export function PaymentSuccessPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto mt-8">
-      <Card className="border-green-500">
+    <div className="max-w-2xl mx-auto mt-12 space-y-6">
+      <Card className="text-center p-8">
         <CardHeader>
-          <CheckCircle2 className="h-16 w-16 text-green-600 mx-auto mb-4" />
-          <CardTitle className="text-center text-2xl">
+          <div className="flex justify-center mb-4">
+            <CheckCircle className="h-20 w-20 text-green-500" />
+          </div>
+          <CardTitle className="text-3xl font-headline text-green-600">
             Payment Successful!
           </CardTitle>
-          <CardDescription className="text-center">
+          <CardDescription className="text-lg mt-4">
             Your booking has been confirmed and payment processed successfully.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="bg-muted/50 p-4 rounded-lg">
-            <p className="text-sm text-center">
-              Booking ID: <span className="font-bold">#{bookingId}</span>
-            </p>
-            <p className="text-sm text-center mt-2 text-muted-foreground">
-              You'll receive a confirmation email shortly with all the booking
-              details.
-            </p>
+          <div className="bg-muted p-4 rounded-lg">
+            <p className="text-sm text-muted-foreground">Booking ID</p>
+            <p className="text-lg font-semibold">{bookingId}</p>
           </div>
-          <Button
-            onClick={() => navigate("/bookings")}
-            className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
-          >
-            View My Bookings
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-export function PaymentCancelPage() {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const bookingId = searchParams.get("booking_id");
-
-  useEffect(() => {
-    const updateBooking = async () => {
-      if (bookingId) {
-        await fetch(`/api/payments/cancel?booking_id=${bookingId}`);
-      }
-    };
-
-    updateBooking();
-  }, [bookingId]);
-
-  return (
-    <div className="max-w-md mx-auto mt-8">
-      <Card className="border-yellow-500">
-        <CardHeader>
-          <XCircle className="h-16 w-16 text-yellow-600 mx-auto mb-4" />
-          <CardTitle className="text-center text-2xl">
-            Payment Cancelled
-          </CardTitle>
-          <CardDescription className="text-center">
-            Your payment was cancelled. Your booking is still pending payment.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-muted/50 p-4 rounded-lg">
-            <p className="text-sm text-center text-muted-foreground">
-              No charges were made to your account. You can try again or cancel
-              the booking if you wish.
-            </p>
+          <div className="bg-muted p-4 rounded-lg">
+            <p className="text-sm text-muted-foreground">Payment ID</p>
+            <p className="text-lg font-mono text-xs">{sessionId}</p>
           </div>
-          <div className="space-y-2">
+          <p className="text-sm text-muted-foreground mt-6">
+            A confirmation email has been sent to your registered email address.
+          </p>
+          <div className="flex gap-4 mt-8">
             <Button
-              onClick={() => navigate(`/booking/${bookingId}/payment`)}
-              className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
-            >
-              Try Payment Again
-            </Button>
-            <Button
-              onClick={() => navigate("/bookings")}
-              className="w-full"
-              variant="outline"
+              onClick={() => navigate("/dashboard/bookings")}
+              className="flex-1"
             >
               View My Bookings
             </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate("/")}
+              className="flex-1"
+            >
+              Back to Home
+            </Button>
           </div>
         </CardContent>
       </Card>
     </div>
   );
-}
+};
+
+export default PaymentSuccessPage;
